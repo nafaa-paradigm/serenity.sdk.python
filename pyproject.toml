@@ -1,3 +1,23 @@
+[project]
+name = "serenity.sdk.python"
+authors = [
+  { name="Cloudwall", email="support@cloudwall.capital" },
+]
+description = "Python SDK for the Serenity digital asset risk API"
+readme = "README.md"
+requires-python = ">=3.7"
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Homepage" = "https://github.com/cloudwall/serenity.sdk.python"
+"Bug Tracker" = "https://github.com/cloudwall/serenity.sdk.python/issues"
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
