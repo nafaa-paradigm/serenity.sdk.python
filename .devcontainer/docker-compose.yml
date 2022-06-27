@@ -1,34 +1,23 @@
 version: "3.8"
 
 services:
-  serenity-project:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        USERNAME: serenitydev
-        UPGRADE_PACKAGES: "true"
+  serenity-sdk-python:
+    init: true
+    privileged: true
+    image: cloudwalldev.azurecr.io/cloudwallcapital/devcontainer/serenity.deploy:latest
     command: /bin/sh -c "while sleep 1000; do :; done"
     entrypoint: /usr/local/share/docker-init.sh
     network_mode: host
     volumes:
       - type: bind
-        source: /workdrive/dev/serenity.templates.python
-        target: /workspaces/serenity.templates.python
+        source: /workdrive/dev/serenity.sdk.python
+        target: /workspaces/serenity.sdk.python
+      - type: volume
+        source: home-data
+        target: /home/serenitydev
       - type: bind
-        source: /workdrive/dev/serenity.core
-        target: /workspaces/serenity.core
-      - type: volume
-        source: docker-data
-        target: /var/lib/docker
-      - type: volume
-        source: vscode
-        target: /vscode
-      - type: volume
-        source: minikube-config
-        target: /home/vscode/.minikube
-
+        source: /home/serenitydev/.azure
+        target: /home/serenitydev/.azure
 volumes:
   docker-data:
-  vscode:
-  minikube-config:
+  home-data:
