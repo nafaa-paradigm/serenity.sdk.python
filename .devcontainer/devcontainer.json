@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.209.6/containers/azure-cli
 {
-	"name": "serenity.project",
+	"name": "serenity.sdk.python",
 	
 	// Set *default* container specific settings.json values on container create.
 	"settings": {},
@@ -14,18 +14,10 @@
 		"GitHub.vscode-pull-request-github",
 		"MS-vsliveshare.vsliveshare",
 		"VisualStudioExptTeam.vscodeintellicode",
+		"atlassian.atlascode",
 		"eamodio.gitlens",
 		"gera2ld.markmap-vscode",
 		"mads-hartmann.bash-ide-vscode",
-		"ms-azure-devops.azure-pipelines",
-		"ms-azuretools.vscode-apimanagement",
-		"ms-azuretools.vscode-azurestaticwebapp",
-		"ms-azuretools.vscode-azurestorage",
-		"ms-azuretools.vscode-azurevirtualmachines",	
-		"ms-azuretools.vscode-cosmosdb",
-		"ms-dotnettools.vscode-dotnet-runtime",
-		"ms-kubernetes-tools.vscode-aks-tools",
-		"ms-kubernetes-tools.vscode-kubernetes-tools",
 		"ms-python.python",
 		"ms-python.vscode-pylance",
 		"ms-vscode.azurecli",
@@ -39,22 +31,7 @@
 	
 	"remoteUser": "serenitydev",
 	"dockerComposeFile": "docker-compose.yml",
-	"service": "serenity-project",
-	"workspaceFolder": "/workspaces/serenity.templates.python",  
-	"features": {
-		"docker-in-docker": "latest",
-		"kubectl-helm-minikube": {
-			"version": "1.22.4",
-			"helm": "latest",
-			"minikube": "1.23.2"
-		},
-		"python": "3.8",
-		"git": "latest",
-		"azure-cli": "latest",
-		"dotnet": {
-			"version": "latest",
-			"runtimeOnly": false
-		  }
-	},
+	"service": "serenity-sdk-python",
+	"workspaceFolder": "/workspaces/serenity.sdk.python",
 	"postCreateCommand": "${containerWorkspaceFolder}/.devcontainer/library-scripts/post-create-steps.sh"
 }
