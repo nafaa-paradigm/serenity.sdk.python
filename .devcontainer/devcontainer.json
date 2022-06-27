@@ -1,0 +1,60 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.209.6/containers/azure-cli
+{
+	"name": "serenity.project",
+	
+	// Set *default* container specific settings.json values on container create.
+	"settings": {},
+	
+	// Add the IDs of extensions you want installed when the container is created.
+	// This is a *minimum* set for Python development; various extensions for 
+	// UI development, GraphQL server development, Kubernetes, etc. should be 
+	// added to the base only if required.
+	"extensions": [
+		"GitHub.vscode-pull-request-github",
+		"MS-vsliveshare.vsliveshare",
+		"VisualStudioExptTeam.vscodeintellicode",
+		"eamodio.gitlens",
+		"gera2ld.markmap-vscode",
+		"mads-hartmann.bash-ide-vscode",
+		"ms-azure-devops.azure-pipelines",
+		"ms-azuretools.vscode-apimanagement",
+		"ms-azuretools.vscode-azurestaticwebapp",
+		"ms-azuretools.vscode-azurestorage",
+		"ms-azuretools.vscode-azurevirtualmachines",	
+		"ms-azuretools.vscode-cosmosdb",
+		"ms-dotnettools.vscode-dotnet-runtime",
+		"ms-kubernetes-tools.vscode-aks-tools",
+		"ms-kubernetes-tools.vscode-kubernetes-tools",
+		"ms-python.python",
+		"ms-python.vscode-pylance",
+		"ms-vscode.azurecli",
+		"stuart.unique-window-colors",
+		"styled-components.vscode-styled-components",
+		"uctakeoff.vscode-counter",
+		"usernamehw.errorlens",
+		"vscode-icons-team.vscode-icons",
+		"yzhang.markdown-all-in-one"
+	],
+	
+	"remoteUser": "serenitydev",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "serenity-project",
+	"workspaceFolder": "/workspaces/serenity.templates.python",  
+	"features": {
+		"docker-in-docker": "latest",
+		"kubectl-helm-minikube": {
+			"version": "1.22.4",
+			"helm": "latest",
+			"minikube": "1.23.2"
+		},
+		"python": "3.8",
+		"git": "latest",
+		"azure-cli": "latest",
+		"dotnet": {
+			"version": "latest",
+			"runtimeOnly": false
+		  }
+	},
+	"postCreateCommand": "${containerWorkspaceFolder}/.devcontainer/library-scripts/post-create-steps.sh"
+}

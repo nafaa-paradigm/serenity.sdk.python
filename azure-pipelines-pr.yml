@@ -1,0 +1,57 @@
+# Multistage pipeline
+# https://aka.ms/yaml
+
+variables:
+  projectName: $(System.TeamProject)
+  feedName: serenity_project_pr_feed
+
+trigger: none
+
+stages:
+  - stage: buildAndTest
+    displayName: 'Build and run unit tests'
+    pool:
+      vmImage: 'ubuntu-latest'
+    jobs:
+      - job: buildAndTestJob
+        displayName: 'Build and Test'
+        container:
+          image: cloudwallcapital/serenity.builder:latest
+          endpoint: cloudwalldev
+        steps:
+        - task: PipAuthenticate@1
+          displayName: 'Pip Authenticate'
+          inputs:
+            artifactFeeds: '$(projectName)/$(feedName)'
+            onlyAddExtraIndex: true
+        - bash: |
+            python -m venv buildvenv
+            source buildvenv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install -e .
+          displayName: 'Install dependencies'
+        - bash: |
+            source buildvenv/bin/activate
+            python -m pip install flake8
+            python -m flake8 src
+          displayName: 'Run flake8 lint tests'
+          continueOnError: true # Allow job to continue
+        - bash: |
+            source buildvenv/bin/activate
+            python -m pip install pytest pytest-azurepipelines pytest-cov pytest-mock
+            PYTHONPATH=src/python python -m pytest tests/ --cov src/python --cov-report html
+          displayName: 'Test and report coverage with pytest'
+        - bash: |
+            source buildvenv/bin/activate
+            pip install wheel twine build
+            echo $(Build.BuildNumber) > VERSION.txt
+            python -m build
+          displayName: 'Build Project Dist Artifact'
+        - task: TwineAuthenticate@1
+          displayName: Twine Authenticate
+          inputs:
+            artifactFeed: $(projectName)/$(feedName)
+        - bash: |
+            source buildvenv/bin/activate
+            python -m twine upload -r $(feedName) --config-file $(PYPIRC_PATH) dist/*.whl
+          displayName: 'Publish Project Package to Azure Artifact'
