@@ -1,17 +1,27 @@
 import fire
 
-from serenity_sdk.auth import create_auth_headers, get_credential_user_app
-from serenity_sdk.client import Environment, get_scopes
+from serenity_sdk.client import Environment, SerenityClient, load_local_config
 
 
-def main(tenant: str, client_id: str, client_secret: str, user_app_id: str):
-    scopes = get_scopes(env=Environment.DEV)
-    credential = get_credential_user_app(client_id=client_id,
-                                         client_secret=client_secret,
-                                         tenant_id=f'{tenant}.onmicrosoft.com')
-    header = create_auth_headers(credential, scopes, user_app_id=user_app_id)
+def main(config_id: str):
+    config = load_local_config(config_id)
+    client = SerenityClient(config, env=Environment.DEV)
 
-    print(header)
+    # confirm access to Asset Master API to retrieve reference data
+    refdata_response = client.call_api('refdata', '/asset/summaries')
+    asset_summaries = refdata_response.get('assetSummary', [])
+    if len(asset_summaries) > 1:
+        print('OK - Asset Master API')
+    else:
+        print(f'ERR - bad response from Asset Master API: {refdata_response}')
+
+    # confirm access to Risk API to retrieve pre-comuted data
+    factor_response = client.call_api('risk', '/factor/returns')
+    factor_returns = factor_response.get('factorReturns', [])
+    if len(factor_returns) > 1:
+        print('OK - Risk API')
+    else:
+        print(f'ERR - bad response from Risk API: {factor_response}')
 
 
 if __name__ == '__main__':
