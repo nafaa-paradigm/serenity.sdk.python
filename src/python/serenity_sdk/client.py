@@ -48,7 +48,11 @@ class SerenityClient:
         """
         api_base_url = f'https://serenity-rest-{self.env.value}-{self.region.value}' \
                        f'.cloudwall.network/{self.version}/{api_group}{api_path}'
-        response_json = requests.get(api_base_url, headers=self.http_headers).json()
+        if body_json:
+            response_json = requests.post(api_base_url, headers=self.http_headers, json=body_json).json()
+        else:
+            response_json = requests.get(api_base_url, headers=self.http_headers).json()
+
         return response_json
 
 
