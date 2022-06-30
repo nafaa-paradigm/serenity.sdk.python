@@ -1,23 +1,25 @@
-[project]
+[tool.poetry]
 name = "serenity.sdk.python"
-authors = [
-  { name="Cloudwall", email="support@cloudwall.capital" },
-]
+version = "0.6.0"
+authors = ["Cloudwall DevSecOps <support@cloudwall.capital>"]
+
 description = "Python SDK for the Serenity digital asset risk API"
 readme = "README.md"
-requires-python = ">=3.7"
-license = { file = "LICENSE" }
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+license = "MIT"
+packages = [
+    { include = "serenity_sdk/**/*.py", from = "src/python" }
 ]
-dynamic = ["version"]
+
+[tool.poetry.dependencies]
+python = ">=3.7,<4"
+azure-identity = "^1.10.0"
+cryptography = "37.0.2"
+fire = "^0.4.0"
 
 [project.urls]
 "Homepage" = "https://github.com/cloudwall/serenity.sdk.python"
 "Bug Tracker" = "https://github.com/cloudwall/serenity.sdk.python/issues"
 
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

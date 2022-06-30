@@ -9,17 +9,22 @@ SHELL := /bin/bash
 venv:
 	@echo "Setting up virtual environment..."
 	rm -rf venv
-	python -m venv venv
+<<<<<<< HEAD
+	${PYTHON} -m venv venv
 	source venv/bin/activate
-	pip install -U pip wheel build twine keyring keyrings.alt flake8 pytest
-	pip install -e .
+	pip install poetry bumpversion build twine keyring keyrings.alt flake8 pytest
+	poetry install
+
+activate-venv:
+	source venv/bin/activate
 
 # static code analysis
-lint:
+lint: activate-venv
 	flake8 src tests
 
 # Run unit tests
-test: venv
+test: activate-venv
+	source venv/bin/activate
 	${PYTHON} -m pytest
 
 # publish to PyPi; requires an API token set in TWINE_PASSWORD
