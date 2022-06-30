@@ -14,7 +14,7 @@ venv:
 	poetry install
 
 activate-venv:
-	source venv/bin/activate
+	bash venv/bin/activate
 
 # static code analysis
 lint: activate-venv
@@ -22,7 +22,6 @@ lint: activate-venv
 
 # Run unit tests
 test: activate-venv
-	bash venv/bin/activate
 	${PYTHON} -m pytest
 
 # publish to PyPi; requires an API token set in TWINE_PASSWORD
