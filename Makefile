@@ -25,19 +25,6 @@ lint: activate-venv
 # Run unit tests
 test: activate-venv
 	source venv/bin/activate
-=======
-	python -m venv venv
-	source venv/bin/activate
-	pip install -U pip wheel build twine keyring keyrings.alt flake8 pytest
-	pip install -e .
-
-# static code analysis
-lint:
-	flake8 src tests
-
-# Run unit tests
-test: venv
->>>>>>> master
 	${PYTHON} -m pytest
 
 # publish to PyPi; requires an API token set in TWINE_PASSWORD
