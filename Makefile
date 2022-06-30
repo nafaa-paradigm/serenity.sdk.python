@@ -12,6 +12,7 @@ venv:
 	${PYTHON} -m venv venv
 	source venv/bin/activate
 	pip install poetry bumpversion build twine keyring keyrings.alt flake8 pytest
+	poetry install
 
 activate-venv:
 	source venv/bin/activate
