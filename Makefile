@@ -1,6 +1,5 @@
 
 PYTHON = python3
-SHELL := /bin/bash
 
 .PHONY = help setup test clean
 .DEFAULT_GOAL = help
@@ -9,10 +8,9 @@ SHELL := /bin/bash
 venv:
 	@echo "Setting up virtual environment..."
 	rm -rf venv
-<<<<<<< HEAD
 	${PYTHON} -m venv venv
-	source venv/bin/activate
-	pip install poetry bumpversion build twine keyring keyrings.alt flake8 pytest
+	bash venv/bin/activate
+	pip3 install poetry bumpversion build twine cryptography keyring keyrings.alt flake8 pytest
 	poetry install
 
 activate-venv:
@@ -24,7 +22,7 @@ lint: activate-venv
 
 # Run unit tests
 test: activate-venv
-	source venv/bin/activate
+	bash venv/bin/activate
 	${PYTHON} -m pytest
 
 # publish to PyPi; requires an API token set in TWINE_PASSWORD
