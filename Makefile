@@ -9,7 +9,7 @@ SHELL := /bin/bash
 venv:
 	@echo "Setting up virtual environment..."
 	rm -rf venv
-	python -m venv venv
+	${PYTHON} -m venv venv
 	source venv/bin/activate
 	pip install -U pip wheel build twine keyring keyrings.alt flake8 pytest
 	pip install -e .
