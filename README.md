@@ -31,8 +31,8 @@ make link
 # run tests
 make test
 
-# install latest to PyPi (token required)
-make install
+# publish latest code to PyPi (token required)
+make publish
 
 # clean up
 make clean

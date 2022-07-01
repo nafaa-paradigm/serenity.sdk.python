@@ -25,7 +25,7 @@ test: activate-venv
 	${PYTHON} -m pytest
 
 # publish to PyPi; requires an API token set in TWINE_PASSWORD
-install: venv lint test
+publish: venv lint test
 	${PYTHON} -m build
 	${PYTHON} -m twine upload -u __token__ dist/*
 
@@ -38,6 +38,6 @@ help:
 	@echo "---------------HELP-----------------"
 	@echo "To setup the project type make setup"
 	@echo "To test the project type make test"
-	@echo "To publish the project type make install"
+	@echo "To publish the project type make publish"
 	@echo "------------------------------------"
 
