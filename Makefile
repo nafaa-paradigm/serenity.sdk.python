@@ -9,7 +9,7 @@ venv:
 	@echo "Setting up virtual environment..."
 	rm -rf venv
 	${PYTHON} -m venv venv
-	. venv/bin/activate && pip install poetry bumpversion build twine cryptography keyring keyrings.alt flake8 pytest
+	. venv/bin/activate && pip install poetry bumpversion build twine cryptography==37.0.2 keyring keyrings.alt flake8 pytest
 	. venv/bin/activate && poetry install
 
 # static code analysis
