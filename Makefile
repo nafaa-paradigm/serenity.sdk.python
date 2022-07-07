@@ -22,7 +22,7 @@ lint: activate-venv
 
 # Run unit tests
 test: activate-venv
-	${PYTHON} -m pytest
+	PYTHONPATH=src/python ${PYTHON} -m pytest
 
 # publish to PyPi; requires an API token set in TWINE_PASSWORD
 publish: venv lint test
