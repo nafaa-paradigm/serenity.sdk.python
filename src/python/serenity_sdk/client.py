@@ -1,8 +1,6 @@
 import json
-import os
 import os.path
 import requests
-import stat
 
 from enum import Enum
 from typing import Any, Dict, List
@@ -58,22 +56,18 @@ class SerenityClient:
         return response_json
 
 
-def load_local_config(config_id: str) -> Any:
+def load_local_config(config_id: str, config_dir: str = None) -> Any:
     """
     Helper function that lets you read a JSON config file with client ID and client secret from
-    $HOME/.serenity/${config_id}.json on your local machine. NOTE: for security reasons this
-    function will fail if the file is world-readable.
+    $HOME/.serenity/${config_id}.json on your local machine.
     """
-    home_dir = os.path.expanduser('~')
-    config_path = os.path.join(home_dir, '.serenity', f'{config_id}.json')
-    st = os.stat(config_path)
 
-    # basic security check because this config file contains a cloud client secret
-    unsafe_file_perms = bool(st.st_mode & (stat.S_IRGRP | stat.S_IROTH))
-    if unsafe_file_perms:
-        raise IOError(f'{config_path} should only be readable by the current user')
+    if not config_dir:
+        home_dir = os.path.expanduser('~')
+        config_dir = os.path.join(home_dir, '.serenity')
+    config_path = os.path.join(config_dir, f'{config_id}.json')
 
-    # good to load
+    # load and parse
     config_file = open(config_path)
     config = json.load(config_file)
 

@@ -9,25 +9,21 @@ venv:
 	@echo "Setting up virtual environment..."
 	rm -rf venv
 	${PYTHON} -m venv venv
-	bash venv/bin/activate
-	pip3 install poetry bumpversion build twine cryptography keyring keyrings.alt flake8 pytest
-	poetry install
-
-activate-venv:
-	bash venv/bin/activate
+	. venv/bin/activate && pip install poetry build twine cryptography==37.0.2 keyring keyrings.alt flake8 pytest
+	. venv/bin/activate && poetry install
 
 # static code analysis
-lint: activate-venv
-	flake8 src tests
+lint: venv
+	. venv/bin/activate && flake8 src tests
 
 # Run unit tests
-test: activate-venv
-	${PYTHON} -m pytest
+test: venv
+	. venv/bin/activate && PYTHONPATH=src/python ${PYTHON} -m pytest
 
 # publish to PyPi; requires an API token set in TWINE_PASSWORD
-publish: venv lint test
-	${PYTHON} -m build
-	${PYTHON} -m twine upload -u __token__ dist/*
+publish: lint test
+	. venv/bin/activate && ${PYTHON} -m build
+	. venv/bin/activate && ${PYTHON} -m twine upload -u __token__ dist/*
 
 # Clear out build cruft
 clean:
