@@ -64,7 +64,7 @@ def load_local_config(config_id: str, config_dir: str = None) -> Any:
 
     if not config_dir:
         home_dir = os.path.expanduser('~')
-        config_dir = os.path.join(home_dir, '.serenity', f'{config_id}.json')
+        config_dir = os.path.join(home_dir, '.serenity')
     config_path = os.path.join(config_dir, f'{config_id}.json')
 
     # load and parse
