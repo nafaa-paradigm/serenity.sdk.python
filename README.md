@@ -13,7 +13,7 @@ make it easier we have provided this lightweight SDK.
 Installation for Python 3.x users is very simple using pip:
 
 ```plain
-pip install serenity.sdk.python
+pip install -r requirements.txt
 ```
 
 ### Building locally
