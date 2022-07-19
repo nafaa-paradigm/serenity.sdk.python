@@ -1,0 +1,10 @@
+ipykernel==6.15.1
+ipython==8.4.0
+jedi==0.18.1
+Jinja2==3.1.2
+jupyter-client==7.3.4
+jupyter-core==4.11.1
+numpy==1.23.1
+pandas==1.4.3
+seaborn==0.11.2
+serenity.sdk.python==0.8.1
