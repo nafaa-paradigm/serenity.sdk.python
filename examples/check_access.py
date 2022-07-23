@@ -1,11 +1,11 @@
 import fire
 
-from serenity_sdk.client import Environment, SerenityClient, load_local_config
+from serenity_sdk.client import Environment, Region, SerenityClient, load_local_config
 
 
 def main(config_id: str):
     config = load_local_config(config_id)
-    client = SerenityClient(config, env=Environment.DEV)
+    client = SerenityClient(config, env=Environment.DEV, region=Region.EASTUS_2)
 
     # confirm access to Asset Master API to retrieve reference data
     refdata_response = client.call_api('refdata', '/asset/summaries')

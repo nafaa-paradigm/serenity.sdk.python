@@ -16,19 +16,21 @@ class Environment(Enum):
     """
     DEV = 'dev'
     TEST = 'test'
-    PRODUCTION = 'prod'
+    PRODUCTION = ''
 
 
 class Region(Enum):
     """
     The regional installation of Serenity to use for connection purposes.
     """
-    US_PRIMARY = 'eastus2'
+    GLOBAL = ''
+    EASTUS = 'eastus'
+    EASTUS_2 = 'eastus2'
 
 
 class SerenityClient:
-    def __init__(self, config_json: Any, env: Environment = Environment.PRODUCTION, region: Region = Region.US_PRIMARY):
-        scopes = get_scopes(env)
+    def __init__(self, config_json: Any, env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL):
+        scopes = get_scopes(env, region)
         credential = get_credential_user_app(client_id=config_json['clientId'],
                                              client_secret=config_json['userApplicationSecret'],
                                              tenant_id=config_json['tenantId'])
@@ -44,8 +46,9 @@ class SerenityClient:
         arguments you can pass a dictionary of request parameters or a JSON object, or both.
         In future versions of the SDK we will offer higher-level calls to ease usage.
         """
-        api_base_url = f'https://serenity-rest-{self.env.value}-{self.region.value}' \
-                       f'.cloudwall.network/{self.version}/{api_group}{api_path}'
+        host = _get_url('https://serenity-rest', self.env, self.region)
+
+        api_base_url = f'{host}/{self.version}/{api_group}{api_path}'
         if body_json:
             response_json = requests.post(api_base_url, headers=self.http_headers,
                                           params=params, json=body_json).json()
@@ -82,11 +85,23 @@ def load_local_config(config_id: str, config_dir: str = None) -> Any:
     return config
 
 
-def get_scopes(env: Environment = Environment.PRODUCTION, region: Region = Region.US_PRIMARY) -> List[str]:
+def get_scopes(env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL) -> List[str]:
     """
     Helper function that returns the login scopes required to access the API given an environment
     and a region. In general you do not need to call this directly.
     """
     return [
-        f'https://serenity-api-{env.value}-{region.value}.cloudwall.network/.default'
+        f"{_get_url('https://serenity-api', env, region)}/.default"
     ]
+
+
+def _get_url(host: str, env: Environment, region: Region):
+    """
+    Helper function that returns the url based on the Environment and Region provided.
+    """
+    if env.value:
+        host = f'{host}-{env.value}'
+    if region.value:
+        host = f'{host}-{region.value}'
+    host = f'{host}.cloudwall.network'
+    return host

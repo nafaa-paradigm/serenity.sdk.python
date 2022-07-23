@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "serenity.sdk.python"
-version = "0.8.1"
+version = "0.8.2"
 authors = ["Cloudwall DevSecOps <support@cloudwall.capital>"]
 
 description = "Python SDK for the Serenity digital asset risk API"
