@@ -31,15 +31,11 @@ jobs:
         with:
           version: 1.2.0rc2
         if: steps.cache.outputs.cache-hit != 'true'
-      - name: Install Runtime Dependencies
-        run: poetry install --no-root -vvv
-        if: steps.cache.outputs.cache-hit != 'true'
       - name: Lint
         run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 5
       - name: Analyze Complexity
         run: radon cc $SRC_DIR
       - name: Test
         run: |
-          poetry env use ${{ matrix.python-version }}
-          pip list
-          PYTHONPATH=$SRC_DIR python -m pytest tests/
+          poetry install --no-root -vvv
+          PYTHONPATH=$SRC_DIR poetry run pytest tests/
