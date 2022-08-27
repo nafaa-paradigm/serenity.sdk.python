@@ -24,14 +24,25 @@ jobs:
         uses: snok/install-poetry@v1
         with:
           version: 1.2.0rc2
-          virtualenvs-create: true
-          virtualenvs-in-project: true
           installer-parallel: true
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v1
+        id: cache
+        with:
+          path: ~/.virtualenvs
+          key: poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ hashFiles('**/poetry.lock') }}
+      - name: Configure Poetry
+        run: |
+          poetry config settings.virtualenvs.in-project false
+          poetry config settings.virtualenvs.path ~/.virtualenvs
       - name: Install Runtime Dependencies
         run: poetry install
+        if: steps.cache.outputs.cache-hit != 'true'
       - name: Lint
         run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 5
       - name: Analyze Complexity
         run: radon cc $SRC_DIR
       - name: Test
-        run: PYTHONPATH=$SRC_DIR poetry run pytest
+        run: poetry run pytest
