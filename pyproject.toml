@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "serenity.sdk.python"
 version = "0.0.0"
-authors = ["Cloudwall DevSecOps <support@cloudwall.capital>"]
+authors = ["Cloudwall Support <support@cloudwall.tech>"]
 
 description = "Python SDK for the Serenity digital asset risk API"
 readme = "README.md"
@@ -14,10 +14,6 @@ packages = [
 python = ">=3.7,<4"
 azure-identity = "^1.10.0"
 fire = "^0.4.0"
-
-[project.urls]
-"Homepage" = "https://github.com/cloudwall/serenity.sdk.python"
-"Bug Tracker" = "https://github.com/cloudwall/serenity.sdk.python/issues"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
