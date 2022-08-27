@@ -41,5 +41,5 @@ jobs:
         run: radon cc $SRC_DIR
       - name: Test
         run: |
-          source $VENV
+          pip list
           PYTHONPATH=$SRC_DIR poetry run pytest tests/
