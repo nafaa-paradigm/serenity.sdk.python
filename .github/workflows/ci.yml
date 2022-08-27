@@ -40,4 +40,5 @@ jobs:
         run: radon cc $SRC_DIR
       - name: Test
         run: |
+          poetry env use ${{ matrix.python-version }}
           PYTHONPATH=$SRC_DIR poetry run pytest tests/
