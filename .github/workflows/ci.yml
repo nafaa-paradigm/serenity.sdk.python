@@ -24,8 +24,7 @@ jobs:
         uses: snok/install-poetry@v1
         with:
           version: 1.2.0rc2
-          virtualenvs-create: false
-          virtualenvs-in-project: false
+          experimental-new-installer: false
         if: steps.cache.outputs.cache-hit != 'true'
       - name: Lint
         run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 5
