@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.7,<4"
+python = ">=3.7,<3.9"
 azure-identity = "^1.10.0"
 fire = "^0.4.0"
 
