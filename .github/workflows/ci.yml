@@ -33,4 +33,6 @@ jobs:
         run: |
           poetry config experimental.new-installer false
           poetry install --no-root
+          poetry env use ${{ matrix.python-version }}
+          pip list
           PYTHONPATH=$SRC_DIR poetry run pytest tests/
