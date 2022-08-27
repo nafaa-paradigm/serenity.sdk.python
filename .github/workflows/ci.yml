@@ -24,7 +24,6 @@ jobs:
         uses: snok/install-poetry@v1
         with:
           version: 1.2.0rc2
-          experimental-new-installer: false
         if: steps.cache.outputs.cache-hit != 'true'
       - name: Lint
         run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 5
@@ -32,6 +31,6 @@ jobs:
         run: radon cc $SRC_DIR
       - name: Test
         run: |
-          poetry config --list
+          poetry config experimenta.new-installer false
           poetry install --no-root
           PYTHONPATH=$SRC_DIR poetry run pytest tests/
