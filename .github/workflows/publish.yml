@@ -1,18 +1,26 @@
 name: Publish
 
-on: 
-  workflow_dispatch:
-    inputs:
-      releaseVersion:
-        description: 'Version of the code to publish to PyPi'     
-        required: true
+on: [workflow_dispatch]
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Setup Python
+    - name: Bump version and push tag
+      id: tag_version
+      uses: mathieudutour/github-tag-action@v6.0
+      with:
+        tag_prefix: 
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create a GitHub release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ steps.tag_version.outputs.new_tag }}
+        name: Release ${{ steps.tag_version.outputs.new_tag }}
+        body: ${{ steps.tag_version.outputs.changelog }}
+        prerelease: true
+    - name: Set Up Python
       uses: actions/setup-python@v2
       with:
         python-version: '3.x'
@@ -31,7 +39,7 @@ jobs:
       run: poetry self add poetry-bumpversion
     - name: Build Package
       run: |
-        poetry version ${{ github.event.inputs.releaseVersion }}
+        poetry version $(git describe --tags --abbrev=0)
         python -m build
     - name: Publish Package
       uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
