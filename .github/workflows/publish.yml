@@ -1,8 +1,11 @@
 name: Publish
 
-on:
-  release:
-    types: [created]
+on: 
+  workflow_dispatch:
+    inputs:
+      releaseVersion:
+        description: 'Version of the code to publish to PyPi'     
+        required: true
 
 jobs:
   deploy:
@@ -19,6 +22,6 @@ jobs:
         pip install poetry poetry-bumpversion
     - name: Build and publish
       run: |
-        poetry version $(git describe --tags --abbrev=0)
+        poetry version ${{ github.event.inputs.releaseVersion }}
         poetry build
         poetry publish --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}        
