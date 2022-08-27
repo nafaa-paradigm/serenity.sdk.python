@@ -41,4 +41,5 @@ jobs:
       - name: Test
         run: |
           poetry env use ${{ matrix.python-version }}
-          PYTHONPATH=$SRC_DIR poetry run pytest tests/
+          pip list
+          PYTHONPATH=$SRC_DIR python -m pytest tests/
