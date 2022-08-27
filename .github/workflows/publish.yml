@@ -24,10 +24,13 @@ jobs:
         virtualenvs-in-project: true
         installer-parallel: true
     - name: Install Poetry Plugin
-      run: |
-        poetry self add poetry-bumpversion
-    - name: Build and Publish
+      run: poetry self add poetry-bumpversion
+    - name: Build Package
       run: |
         poetry version ${{ github.event.inputs.releaseVersion }}
-        poetry build
-        poetry publish --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}        
+        python -m build
+    - name: Publish Package
+      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
