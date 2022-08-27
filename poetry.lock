@@ -230,7 +230,7 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7,<3.9"
-content-hash = "de6720d7689bedc8e7ec84a9175eeff68a3b33d922edb4da0536a0bc64786e24"
+content-hash = "e37ed4eb681de16a8896d37aefec849012b2325b607c148a299e0a72c1baaa6f"
 
 [metadata.files]
 azure-core = [
