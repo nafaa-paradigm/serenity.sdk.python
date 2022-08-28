@@ -23,12 +23,11 @@ jobs:
       - name: Install Runtime Dependencies
         run: |
           poetry install --no-root
-          /home/runner/.cache/pypoetry/virtualenvs/serenity.sdk.python-KZYnopbe-py3.8/bin/pip list
       - name: Lint
         run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 5
       - name: Analyze Complexity
         run: radon cc $SRC_DIR
       - name: Test
         run: |
-          pip list
+          poetry env use ${{ matrix.python-version }}
           PYTHONPATH=$SRC_DIR poetry run pytest tests/
