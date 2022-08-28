@@ -1,0 +1,2 @@
+*.ipynb filter=poetry run nbstripout
+*.ipynb diff=ipynb
