@@ -21,11 +21,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install poetry flake8 pytest radon
       - name: Install Runtime Dependencies
-        run: poetry install --no-root
+        run: |
+          poetry install --no-root
+          ls /home/runner/.cache/pypoetry/virtualenvs/serenity.sdk.python-KZYnopbe-py3.8
       - name: Lint
         run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 5
       - name: Analyze Complexity
         run: radon cc $SRC_DIR
       - name: Test
         run: |
+          pip list
           PYTHONPATH=$SRC_DIR poetry run pytest tests/
