@@ -39,8 +39,8 @@ jobs:
       run: poetry self add poetry-bumpversion
     - name: Build Package
       run: |
-        git fetch --prune --unshallow --tags
-        poetry version $(git describe --tags --abbrev=0)
+        # bumpversion plugin will ensure new version applied in all places
+        poetry version ${{ steps.tag_version.outputs.new_tag }}
         python -m build
     - name: Publish Package
       uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
