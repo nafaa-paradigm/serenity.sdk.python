@@ -39,6 +39,7 @@ jobs:
       run: poetry self add poetry-bumpversion
     - name: Build Package
       run: |
+        git fetch --prune --unshallow --tags
         poetry version $(git describe --tags --abbrev=0)
         python -m build
     - name: Publish Package
