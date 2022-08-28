@@ -16,28 +16,6 @@ Installation for Python 3.x users is very simple using pip:
 pip install serenity.sdk.python
 ```
 
-### Building locally
-
-If you wish to run the local setup you can use the provided ```Makefile```, however this
-is primarily aimed for internal Cloudwall use; we recommend clients use pip install.
-
-```bash
-# set up a virtual environment with dependencies
-make venv
-
-# check code
-make link
-
-# run tests
-make test
-
-# publish latest code to PyPi (token required)
-make publish
-
-# clean up
-make clean
-```
-
 ### Learning more
 
 At this time the API and its documentation are only available to members of our private beta, via

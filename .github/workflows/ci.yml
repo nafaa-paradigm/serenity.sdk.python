@@ -1,0 +1,33 @@
+name: Continuous Integration
+
+on: [push]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      SRC_DIR: src/python
+    strategy:
+      matrix:
+        python-version: ["3.7", "3.8"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set Up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Build Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry flake8 pytest radon
+      - name: Install Runtime Dependencies
+        run: |
+          poetry install --no-root
+      - name: Lint
+        run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 5
+      - name: Analyze Complexity
+        run: radon cc $SRC_DIR
+      - name: Test
+        run: |
+          POETRY_VENV=`poetry env info --path`
+          PYTHONPATH=$SRC_DIR $POETRY_VENV/bin/python -m pytest tests/
