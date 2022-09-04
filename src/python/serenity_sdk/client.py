@@ -2,10 +2,12 @@ import json
 import os.path
 import requests
 
+from abc import ABC
 from enum import Enum
 from typing import Any, Dict, List
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
+from serenity_sdk.types import ModelMetadata
 
 SERENITY_API_VERSION = 'v1'
 
@@ -79,6 +81,91 @@ class SerenityClient:
             host = f'{host}-{region.value}'
         host = f'{host}.cloudwall.network'
         return host
+
+
+class SerenityApi(ABC):
+    """
+    Higher-level wrapper around a particular API endpoint like the Risk API or Model API. Subclasses
+    add typed operations and various helper functions specific to that API group.
+    """
+    def __init__(self, client: SerenityClient, api_group: str):
+        self.client = client
+        self.api_group = api_group
+
+    def _call_api(self, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
+        return self.client.call_api(self.api_group, api_path, params, body_json)
+
+
+class RiskApi(SerenityApi):
+    """
+    """
+    def __init__(self, client: SerenityClient):
+        super().__init__(client, 'risk')
+
+
+class RefdataApi(SerenityApi):
+    """
+    """
+    def __init__(self, client: SerenityClient):
+        super().__init__(client, 'refdata')
+
+
+class ModelApi(SerenityApi):
+    """
+    Helper class for the Model Metadata API, which lets clients introspect model parameters
+    and other information about available risk models. This endpoint is also required for
+    looking up the appropriate Model Configuration ID in the forthcoming Risk API upgrade
+    so you can specify which configuration you want to use for risk attribution, scenarios
+    and other risk tools.
+    """
+    def __init__(self, client: SerenityClient):
+        super().__init__(client, 'catalog')
+
+    def load_model_metadata(self):
+        model_classes = self.get_model_classes()
+        models = self.get_models()
+        model_configs = self.get_model_configurations()
+        return ModelMetadata(model_classes, models, model_configs)
+
+    def get_model_classes(self) -> List[Any]:
+        """
+        Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
+        These are the high-level groups of models supported by Serenity.
+        """
+        return self._call_api('/model/modelclasses')['modelClasses']
+
+    def get_models(self) -> List[Any]:
+        """
+        Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
+        These are the high-level groups of models supported by Serenity.
+        """
+        return self._call_api('/model/models')['models']
+
+    def get_model_configurations(self) -> List[Any]:
+        """
+        Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
+        These are the high-level groups of models supported by Serenity.
+        """
+        return self._call_api('/model/modelconfigurations')['modelConfigurationSummaries']
+
+
+class SerenityApiProvider:
+    """
+    Simple entrypoint that gives you access to the full set of Serenity API's from a single class.
+    """
+    def __init__(self, client: SerenityClient):
+        self.refdata_api = RefdataApi(client)
+        self.risk_api = RiskApi(client)
+        self.model_api = ModelApi(client)
+
+    def refdata(self):
+        return self.refdata_api
+
+    def risk(self):
+        return self.risk_api
+
+    def model(self):
+        return self.model_api
 
 
 def load_local_config(config_id: str, config_dir: str = None) -> Any:
