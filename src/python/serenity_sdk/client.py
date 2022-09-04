@@ -30,7 +30,7 @@ class Region(Enum):
 
 class SerenityClient:
     def __init__(self, config_json: Any, env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL):
-        scopes = get_scopes(env, region)
+        scopes = SerenityClient._get_scopes(env, region)
         credential = get_credential_user_app(client_id=config_json['clientId'],
                                              client_secret=config_json['userApplicationSecret'],
                                              tenant_id=config_json['tenantId'])
@@ -46,7 +46,7 @@ class SerenityClient:
         arguments you can pass a dictionary of request parameters or a JSON object, or both.
         In future versions of the SDK we will offer higher-level calls to ease usage.
         """
-        host = _get_url('https://serenity-rest', self.env, self.region)
+        host = SerenityClient._get_url('https://serenity-rest', self.env, self.region)
 
         api_base_url = f'{host}/{self.version}/{api_group}{api_path}'
         if body_json:
@@ -57,6 +57,28 @@ class SerenityClient:
                                          params=params).json()
 
         return response_json
+
+    @staticmethod
+    def _get_scopes(env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL) -> List[str]:
+        """
+        Helper function that returns the login scopes required to access the API given an environment
+        and a region. In general you do not need to call this directly.
+        """
+        return [
+            f"{SerenityClient._get_url('https://serenity-api', env, region)}/.default"
+        ]
+
+    @staticmethod
+    def _get_url(host: str, env: Environment, region: Region):
+        """
+        Helper function that returns the url based on the Environment and Region provided.
+        """
+        if env.value:
+            host = f'{host}-{env.value}'
+        if region.value:
+            host = f'{host}-{region.value}'
+        host = f'{host}.cloudwall.network'
+        return host
 
 
 def load_local_config(config_id: str, config_dir: str = None) -> Any:
@@ -83,25 +105,3 @@ def load_local_config(config_id: str, config_dir: str = None) -> Any:
         raise ValueError(f'At this time only schemaVersion 1 supported; {config_path} is version {schema_version}')
 
     return config
-
-
-def get_scopes(env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL) -> List[str]:
-    """
-    Helper function that returns the login scopes required to access the API given an environment
-    and a region. In general you do not need to call this directly.
-    """
-    return [
-        f"{_get_url('https://serenity-api', env, region)}/.default"
-    ]
-
-
-def _get_url(host: str, env: Environment, region: Region):
-    """
-    Helper function that returns the url based on the Environment and Region provided.
-    """
-    if env.value:
-        host = f'{host}-{env.value}'
-    if region.value:
-        host = f'{host}-{region.value}'
-    host = f'{host}.cloudwall.network'
-    return host
