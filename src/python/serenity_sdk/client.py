@@ -158,7 +158,7 @@ class RiskApi(SerenityApi):
     def load_factor_model_outputs(self):
         """
         Helper method that encapsulates multiple API calls to get the factor mmodel outputs
-        for a given date: matrices; factor returns; factor exposures; and other pre-computed 
+        for a given date: matrices; factor returns; factor exposures; and other pre-computed
         values from the factor risk model.
 
         This is a very heavy operation but only has to be called once for a given day and model.
