@@ -3,13 +3,16 @@ import os.path
 import requests
 
 from abc import ABC
+from datetime import date
 from enum import Enum
 from typing import Any, Dict, List
+from uuid import UUID
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
 from serenity_sdk.types import ModelMetadata
 
 SERENITY_API_VERSION = 'v1'
+AS_OF_DATE_FMT = '%Y-%m-%d'
 
 
 class Environment(Enum):
@@ -95,19 +98,100 @@ class SerenityApi(ABC):
     def _call_api(self, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
         return self.client.call_api(self.api_group, api_path, params, body_json)
 
-
-class RiskApi(SerenityApi):
-    """
-    """
-    def __init__(self, client: SerenityClient):
-        super().__init__(client, 'risk')
+    @staticmethod
+    def _create_std_params(as_of_date: date) -> Dict[str, str]:
+        """
+        Internal helper that generates params dict based on common parameters for Model API.
+        """
+        if as_of_date is None:
+            return {}
+        else:
+            return {'asOfDate': as_of_date.strftime(AS_OF_DATE_FMT)}
 
 
 class RefdataApi(SerenityApi):
     """
+    The refdata API group covers access to the Serenity Asset Master and other supporting
+    reference data needed for constructing portfolios and running risk models.
     """
     def __init__(self, client: SerenityClient):
         super().__init__(client, 'refdata')
+
+    def load_asset_master(self, as_of_date: date = None):
+        """
+        Bulk load operation that loads the whole asset master into memory so it can be
+        used to help build portfolios bassed on inputs in different symbologies, and
+        so it can be queried without hitting the server multiple times. Reference data
+        is always as of a date, as it can change over time, but if a date is not provided
+        the system will default to the latest date.
+        """
+        pass
+
+    def get_asset_types(self, as_of_date: date = None) -> List[str]:
+        """
+        Gets the list of supported asset types in the system, e.g. TOKEN.
+        """
+        pass
+
+    def get_symbol_authorities(self, as_of_date: date = None) -> List[str]:
+        """
+        Gets the list of supported symbol authorities, e.g. KAIKO, DAR or COINGECKO.
+        """
+        pass
+
+    def get_sector_taxonomy_ids(self, as_of_date: date = None) -> Dict[str, UUID]:
+        """
+        Gets a mapping from a short key like DACS or DATS to the sectory taxonomy ID (UUID).
+        This will be required in the 20220917 release if you wish to override the sector
+        taxonomy in use for risk attribution. Currently information only.
+        """
+        pass
+
+
+class RiskApi(SerenityApi):
+    """
+    The risk API group covers risk attribution, VaR and (in a future release) scenario analysis.
+    """
+    def __init__(self, client: SerenityClient):
+        super().__init__(client, 'risk')
+
+    def load_factor_model_outputs(self):
+        """
+        Helper method that encapsulates multiple API calls to get the factor mmodel outputs
+        for a given date: matrices; factor returns; factor exposures; and other pre-computed 
+        values from the factor risk model.
+
+        This is a very heavy operation but only has to be called once for a given day and model.
+        With the 20220917 upgrade you will need to specify a model configuration ID from Model API.
+        """
+        pass
+
+    def compute_risk_attrib(self):
+        """
+        Given a portfolio, breaks down the volatility and variance of the portfolio in various
+        slices, e.g. by asset, by sector & asset, by sector & factor, and by factor. These different
+        pivots of the risk can help you identify areas of risk concentration. All risk calculations
+        are always as of a given date, which among other things determines precomputed model values
+        that will be applied, e.g. for a factor risk model, as-of date determines the factor loadings.
+        """
+        pass
+
+    def compute_var(self):
+        """
+        Uses a chosen model to compute Value at Risk (VaR) for a portfolio. In the coming release
+        this operation will be upgraded to integrate with the Model API and will let you identify
+        the model to use by an ID looked up in the model catalog.
+        """
+        pass
+
+    def compute_var_backtest(self):
+        """
+        Performs a VaR backtest, a run of the VaR model for a given portfolio over a time period.
+        The goal of the backtest to identify days where the losses exceeded the model prediction,
+        i.e. days with VaR breaches. Too many such breaches can lower confidence in the VaR model,
+        so it is an important test of the model's predictive power.
+        """
+        pass
 
 
 class ModelApi(SerenityApi):
@@ -121,32 +205,38 @@ class ModelApi(SerenityApi):
     def __init__(self, client: SerenityClient):
         super().__init__(client, 'catalog')
 
-    def load_model_metadata(self):
-        model_classes = self.get_model_classes()
-        models = self.get_models()
-        model_configs = self.get_model_configurations()
+    def load_model_metadata(self, as_of_date: date = None) -> ModelMetadata:
+        """
+        Helper method that preloads all the model metadata into memory for easy access.
+        """
+        model_classes = self.get_model_classes(as_of_date)
+        models = self.get_models(as_of_date)
+        model_configs = self.get_model_configurations(as_of_date)
         return ModelMetadata(model_classes, models, model_configs)
 
-    def get_model_classes(self) -> List[Any]:
+    def get_model_classes(self, as_of_date: date = None) -> List[Any]:
         """
         Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
         These are the high-level groups of models supported by Serenity.
         """
-        return self._call_api('/model/modelclasses')['modelClasses']
+        params = SerenityApi._create_std_params(as_of_date)
+        return self._call_api('/model/modelclasses', params=params)['modelClasses']
 
-    def get_models(self) -> List[Any]:
+    def get_models(self, as_of_date: date = None) -> List[Any]:
         """
         Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
         These are the high-level groups of models supported by Serenity.
         """
-        return self._call_api('/model/models')['models']
+        params = SerenityApi._create_std_params(as_of_date)
+        return self._call_api('/model/models', params=params)['models']
 
-    def get_model_configurations(self) -> List[Any]:
+    def get_model_configurations(self, as_of_date: date = None) -> List[Any]:
         """
         Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
         These are the high-level groups of models supported by Serenity.
         """
-        return self._call_api('/model/modelconfigurations')['modelConfigurationSummaries']
+        params = SerenityApi._create_std_params(as_of_date)
+        return self._call_api('/model/modelconfigurations', params=params)['modelConfigurationSummaries']
 
 
 class SerenityApiProvider:
