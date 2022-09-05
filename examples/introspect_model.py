@@ -27,7 +27,7 @@ def main(config_id: str, env: str = 'PRODUCTION', region: str = 'GLOBAL'):
         print('\t', model_config)
 
     # demonstrates looking up a model configuration by its short name
-    print(f'\nSFRM model configuration ID: {model_meta.get_model_configuration_id("risk.factor.regression.SLM")}')
+    print(f'\nSFRM model configuration ID: {model_meta.get_model_configuration_id("risk.factor.regression.SLM.MT")}')
 
 
 if __name__ == '__main__':
