@@ -1,5 +1,113 @@
-from typing import Any, List
+from enum import Enum
+from datetime import date
+from typing import Any, AnyStr, Dict, List
 from uuid import UUID
+
+
+class Portfolio:
+    """
+    Simple value object that can be used as an input for risk attribution, VaR calculations
+    and other client functions that require a portfolio as input. In general a user provides
+    the desired portfolio composition in their chosen symbology and then the AssetMoster object
+    can be used to do cross-referencing between multiple symbologies and Serenity's internal
+    asset ID: UUID values. This lets users work with easy-to-understand portfolio definitions
+    while making it a one-liner to translate for Serenity.
+    """
+    def __init__(self, assets: Dict[UUID, float]):
+        self.assets = assets
+
+    def to_asset_positions(self) -> List[Dict[AnyStr, Any]]:
+        """
+        Internal helper that converts a Portfolio to the preferred format for risk attribution,
+        VaR compution, VaR backtest, etc.
+        """
+        return [{'assetId': str(asset_id), 'quantity': qty} for (asset_id, qty) in self.assets.items()]
+
+
+class MarkTime(Enum):
+    """
+    Snapshot time to use for daily close price purposes; as crypto is a 24x7 market users can
+    choose their preferred closing time for marking books. Note that UTC will not be supported
+    until the 20220817 release.
+    """
+
+    NY_EOD = 'NY_EOD'
+    LN_EOD = 'LN_EOD'
+    HK_EOD = 'HK_EOD'
+    UTC = 'UTC'
+
+
+class CalculationContext:
+    """
+    Paramter object that groups together the common inputs for risk calculations. Everything
+    gets defaulted, so you need only populate any overrides.
+    """
+    as_of_date: date = None
+    model_config_id: UUID = None
+    mark_time: MarkTime = MarkTime.NY_EOD
+    base_currency_id: UUID = None
+
+
+class SectorTaxonomy(Enum):
+    """
+    Transition enum until the 20220917 is deployed, supporting lookup via API of
+    sector taxonomy UUID's so you can use arbitrary taxonomies (including user-defined)
+    """
+    DACS = "DACS"
+    DATS = "DATS"
+
+
+class AssetMaster:
+    """
+    Result class that holds the contents of the Serenity asset catalog in memory,
+    making it easier to query it and also to create Portfolio objects from it.
+    """
+    pass
+
+
+class FactorModelOutputs:
+    """
+    Result class that holds all the factor model outputs for a given day. This simplifies
+    manipulation of the various API endpoints by fetching everything together and then
+    making it available as an in-memory snapshot for display and analysis.
+    """
+    pass
+
+
+class RiskAttributionResult:
+    """
+    Result class that helps users interpret the fairly complex structured output from
+    risk attribution, specifically helping break down the various pivots by asset, sector,
+    etc.. IMPORTANT: there will be a breaking change in the 20220917 release which will
+    change how we represent sector hierarchies on output. If you switch to using this object
+    for parsing results in your notebook, the corresponding SDK upgrade will take care of
+    this migration for you, so we strongly recommend replacing explicit parsing of the
+    sector output with use of this object prior to that release.
+    """
+    pass
+
+
+class VaRModel(Enum):
+    """
+    Temporary workaround pre-20220917 that lets you specify the VaR model type with an
+    enum rather than via a modelConfigId UUID.
+    """
+    VAR_HISTORICAL = 'VAR_HISTORICAL'
+    VAR_PARAMETRIC_NORMAL = 'VAR_PARAMETRIC_NORMAL'
+
+
+class VaRResult:
+    """
+    Result class that helps users interpret the output of the VaR model, e.g. processing quartiles.
+    """
+    pass
+
+
+class VaRBacktestResult:
+    """
+    Result class that helps users interpret the output of the VaR model backtester, e.g. processing breaches.
+    """
+    pass
 
 
 class ModelMetadata:

@@ -9,7 +9,9 @@ from typing import Any, Dict, List
 from uuid import UUID
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
-from serenity_sdk.types import ModelMetadata
+from serenity_sdk.types import (AssetMaster, CalculationContext, FactorModelOutputs, ModelMetadata,
+                                Portfolio, RiskAttributionResult, SectorTaxonomy, VaRBacktestResult,
+                                VaRModel, VaRResult)
 
 SERENITY_API_VERSION = 'v1'
 AS_OF_DATE_FMT = '%Y-%m-%d'
@@ -117,7 +119,7 @@ class RefdataApi(SerenityApi):
     def __init__(self, client: SerenityClient):
         super().__init__(client, 'refdata')
 
-    def load_asset_master(self, as_of_date: date = None):
+    def load_asset_master(self, as_of_date: date = None) -> AssetMaster:
         """
         Bulk load operation that loads the whole asset master into memory so it can be
         used to help build portfolios bassed on inputs in different symbologies, and
@@ -155,7 +157,7 @@ class RiskApi(SerenityApi):
     def __init__(self, client: SerenityClient):
         super().__init__(client, 'risk')
 
-    def load_factor_model_outputs(self):
+    def load_factor_model_outputs(self, ctx: CalculationContext) -> FactorModelOutputs:
         """
         Helper method that encapsulates multiple API calls to get the factor mmodel outputs
         for a given date: matrices; factor returns; factor exposures; and other pre-computed
@@ -166,25 +168,44 @@ class RiskApi(SerenityApi):
         """
         pass
 
-    def compute_risk_attrib(self):
+    def compute_risk_attrib(self, ctx: CalculationContext,
+                            portfolio: Portfolio,
+                            sector_taxonomy_id: UUID = None,
+                            sector_taxonomy: SectorTaxonomy = None) -> RiskAttributionResult:
         """
         Given a portfolio, breaks down the volatility and variance of the portfolio in various
         slices, e.g. by asset, by sector & asset, by sector & factor, and by factor. These different
         pivots of the risk can help you identify areas of risk concentration. All risk calculations
         are always as of a given date, which among other things determines precomputed model values
         that will be applied, e.g. for a factor risk model, as-of date determines the factor loadings.
+
+        Note that sector_taxonomy support will be dropped with 20220917, once the refdata endpoint
+        for looking up sector_taxonomy_id is available.
         """
         pass
 
-    def compute_var(self):
+    def compute_var(self, ctx: CalculationContext,
+                    portfolio: Portfolio,
+                    horizon_days: int = 1,
+                    lookback_period: int = 1,
+                    quantiles: List[float] = [95, 97.5, 99],
+                    var_model: VaRModel = VaRModel.VAR_PARAMETRIC_NORMAL) -> VaRResult:
         """
         Uses a chosen model to compute Value at Risk (VaR) for a portfolio. In the coming release
         this operation will be upgraded to integrate with the Model API and will let you identify
-        the model to use by an ID looked up in the model catalog.
+        the model to use by an ID looked up in the model catalog. Note there is a workaround here:
+        from 20220917 onward, the var_model parameter will be dropped, so until then it's best
+        to take the default; the CalculationContext will be used after that release, which will
+        allow many more model parameterizations on the backend.
         """
         pass
 
-    def compute_var_backtest(self):
+    def compute_var_backtest(self, ctx: CalculationContext,
+                             portfolio: Portfolio,
+                             start_date: date,
+                             end_date: date,
+                             lookback_period: int = 1,
+                             quantile: float = 99) -> VaRBacktestResult:
         """
         Performs a VaR backtest, a run of the VaR model for a given portfolio over a time period.
         The goal of the backtest to identify days where the losses exceeded the model prediction,
