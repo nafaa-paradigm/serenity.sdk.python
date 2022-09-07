@@ -5,7 +5,7 @@ import requests
 from abc import ABC
 from datetime import date
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, AnyStr, Dict, List
 from uuid import UUID
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
@@ -127,27 +127,50 @@ class RefdataApi(SerenityApi):
         is always as of a date, as it can change over time, but if a date is not provided
         the system will default to the latest date.
         """
-        pass
+        asset_summaries = self.get_asset_summaries(as_of_date)
+        return AssetMaster(asset_summaries)
 
-    def get_asset_types(self, as_of_date: date = None) -> List[str]:
+    def get_asset_summaries(self, as_of_date: date = None) -> List[Any]:
         """
-        Gets the list of supported asset types in the system, e.g. TOKEN.
+        Gets the list of asset records in the asset master. In general you should prefer
+        to use load_asset_master() instead, which will help parsing the JSON records,
+        rather than this lower-level call.
         """
-        pass
+        params = self._create_std_params(as_of_date)
+        resp = self._call_api('/asset/summaries', params)
+        asset_summaries = resp['assetSummary']
+        return asset_summaries
 
-    def get_symbol_authorities(self, as_of_date: date = None) -> List[str]:
+    def get_asset_types(self, as_of_date: date = None) -> Dict[AnyStr, AnyStr]:
         """
-        Gets the list of supported symbol authorities, e.g. KAIKO, DAR or COINGECKO.
+        Gets the list of supported asset types in the system, e.g. TOKEN, as
+        a map from name to description.
         """
-        pass
+        params = self._create_std_params(as_of_date)
+        resp = self._call_api('/asset/types', params)
+        asset_types = resp['assetType']
+        return {asset_type['name']: asset_type['description'] for asset_type in asset_types}
 
-    def get_sector_taxonomy_ids(self, as_of_date: date = None) -> Dict[str, UUID]:
+    def get_symbol_authorities(self, as_of_date: date = None) -> Dict[AnyStr, AnyStr]:
+        """
+        Gets the list of supported symbol authorities, e.g. KAIKO, DAR or COINGECKO,
+        as a map from name to description.
+        """
+        params = self._create_std_params(as_of_date)
+        resp = self._call_api('/symbol/authorities', params)
+        authorities = resp['symbolAuthority']
+        return {authority['name']: authority['description'] for authority in authorities}
+
+    def get_sector_taxonomies(self, as_of_date: date = None) -> Dict[str, UUID]:
         """
         Gets a mapping from a short key like DACS or DATS to the sectory taxonomy ID (UUID).
-        This will be required in the 20220917 release if you wish to override the sector
-        taxonomy in use for risk attribution. Currently information only.
+        This will be required in the next release if you wish to override the sector
+        taxonomy in use for risk attribution. Currently informational only.
         """
-        pass
+        params = self._create_std_params(as_of_date)
+        resp = self._call_api('/sector/taxonomies', params)
+        taxonomies = resp['sectorTaxonomy']
+        return {taxonomy['name']: taxonomy['taxonomyId'] for taxonomy in taxonomies}
 
 
 class RiskApi(SerenityApi):
@@ -164,7 +187,7 @@ class RiskApi(SerenityApi):
         values from the factor risk model.
 
         This is a very heavy operation but only has to be called once for a given day and model.
-        With the 20220917 upgrade you will need to specify a model configuration ID from Model API.
+        With the next release you will need to specify a model configuration ID from Model API.
         """
         pass
 
@@ -179,7 +202,7 @@ class RiskApi(SerenityApi):
         are always as of a given date, which among other things determines precomputed model values
         that will be applied, e.g. for a factor risk model, as-of date determines the factor loadings.
 
-        Note that sector_taxonomy support will be dropped with 20220917, once the refdata endpoint
+        Note that sector_taxonomy support will be dropped with the next release, once the refdata endpoint
         for looking up sector_taxonomy_id is available.
         """
         pass
@@ -194,7 +217,7 @@ class RiskApi(SerenityApi):
         Uses a chosen model to compute Value at Risk (VaR) for a portfolio. In the coming release
         this operation will be upgraded to integrate with the Model API and will let you identify
         the model to use by an ID looked up in the model catalog. Note there is a workaround here:
-        from 20220917 onward, the var_model parameter will be dropped, so until then it's best
+        from the next release, the var_model parameter will be dropped, so until then it's best
         to take the default; the CalculationContext will be used after that release, which will
         allow many more model parameterizations on the backend.
         """
