@@ -186,7 +186,7 @@ class ModelMetadata:
         self.model_classes = model_classes
         self.models = models
         self.model_configs = model_configs
-        self.model_config_map = {model_config['shortName']: model_config['modelConfigId']
+        self.model_config_map = {model_config['shortName']: UUID(model_config['modelConfigId'])
                                  for model_config in model_configs}
 
     def get_model_class_names(self) -> List[str]:
@@ -203,13 +203,13 @@ class ModelMetadata:
         """
         return [model['displayName'] for model in self.models]
 
-    def get_model_configuration_names(self) -> List[str]:
+    def get_model_configurations(self) -> Dict[AnyStr, AnyStr]:
         """
         Enumerates the naems of all model configurations; this corresponds to specific
         parameterizations of models, e.g. short time horizon and long time horizon
         variations of a factor risk model are two different configurations.
         """
-        return [model_config['displayName'] for model_config in self.model_configs]
+        return {model_config['shortName']: model_config['displayName'] for model_config in self.model_configs}
 
     def get_model_configuration_id(self, short_name: str) -> UUID:
         """
