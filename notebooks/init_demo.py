@@ -35,10 +35,12 @@ connect = Button(description='Connect',
 
 client = None
 api = None
+env_value = None
 
 def on_connect(button):
     global client
     global api
+    global env_value
     
     config_id = api_config.value
     env_value = Environment[env.value]

@@ -3,8 +3,9 @@ import os.path
 import requests
 
 from abc import ABC
+from bidict import bidict
 from datetime import date
-from enum import Enum
+from enum import Enum, auto
 from typing import Any, AnyStr, Dict, List
 from uuid import UUID
 
@@ -35,6 +36,171 @@ class Region(Enum):
     EASTUS_2 = 'eastus2'
 
 
+class CallType(Enum):
+    """
+    Types of REST calls supported.
+    """
+    DELETE = 'DELETE'
+    GET = 'GET'
+    PATCH = 'PATCH'
+    POST = 'POST'
+    PUT = 'PUT'
+
+
+class CallingConvention(Enum):
+    """
+    Original API mixed parameters in the POST body and as request parameters;
+    going forward everything is in a single JSON object passed in the body.
+    """
+
+    MIXED = auto()
+    BODY_ONLY = auto()
+
+
+class UnknownOperationError(Exception):
+    """
+    Error raised if there is a request for an API operation that is not known at all. Used
+    to prevent unknown paths hitting the gataway unnecessarily.
+    """
+    def __init__(self, api_path: str, env: Environment):
+        super().__init__(f'Unknown operation: {api_path} not mapped in {env}')
+
+
+class UnsupportedOperationError(Exception):
+    """
+    Error raised if there is a request for an API operation that is not (yet) supported.
+    """
+    def __init__(self, api_path: str, env: Environment):
+        super().__init__(f'Unsupported operation: {api_path} not mapped in {env}')
+
+
+class APIPathMapper:
+    """
+    Helper class for adapting from the original API path scheme to the new uniform
+    scheme going live on 1 October 2022. One of the complications here is we want
+    new-style SDK code to transparently work with the old backend, and old-style
+    SDK calls to continue to work against all environments to ease transitions.
+    """
+    def __init__(self, env: Environment = Environment.PRODUCTION):
+        # the full set of API paths that are known to the SDK;
+        # not every environment and every version of the API supports
+        # every path in this list
+        self.env = env
+
+        # to allow smooth transition from old to new, we have a set of
+        # aliases that work in both directions: if an old path is
+        # used and we are running against DEV, it translates to the new;
+        # if a new path is used and we're running against PRODUCTION, it
+        # translates to the old
+        self.path_aliases = bidict({
+            # re-map Risk API
+            '/risk/market/factor/asset_covariance': '/risk/asset/covariance',
+            '/risk/market/factor/attribution': '/risk/compute/attribution',
+            '/risk/market/factor/correlation': '/risk/factor/correlation',
+            '/risk/market/factor/covariance': '/risk/factor/covariance',
+            '/risk/market/factor/exposures': '/risk/asset/factor/exposures',
+            '/risk/market/factor/residual_covariance': '/risk/asset/residual/covariance',
+            '/risk/market/factor/returns': '/risk/factor/returns',
+
+            # re-map VaR API
+            '/risk/var/compute': '/risk/compute/var',
+            '/risk/var/backtest': '/risk/backtest/var',
+        })
+        self.env_override_map = {
+            Environment.DEV: {'aliases': self.path_aliases.inverse, 'unsupported': {}},
+            Environment.TEST: {'aliases': self.path_aliases.inverse, 'unsupported': {}},
+            Environment.PRODUCTION: {'aliases': self.path_aliases,
+                                     'unsupported': {'/valuation/portfolio/compute', '/risk/market/factor/indexcomps'}}
+        }
+
+        # next we have the path configurations, which are always based on the latest path;
+        # you need to map from old to new to get the configuration
+        self.path_configs = {
+            # Refdata API
+            '/refdata/asset/summaries': {'call_type': CallType.GET},
+            '/refdata/asset/types': {'call_type': CallType.GET},
+            '/refdata/symbol/authorities': {'call_type': CallType.GET},
+            '/refdata/sector/taxonomies': {'call_type': CallType.GET},
+
+            # Model metadata API
+            '/catalog/model/modelclasses': {'call_type': CallType.GET},
+            '/catalog/model/models': {'call_type': CallType.GET},
+            '/catalog/model/modelconfigurations': {'call_type': CallType.GET},
+
+            # Risk API
+            '/risk/market/factor/asset_covariance': {'call_type': CallType.GET},
+            '/risk/market/factor/attribution': {'call_type': CallType.POST},
+            '/risk/market/factor/correlation': {'call_type': CallType.GET},
+            '/risk/market/factor/covariance': {'call_type': CallType.GET},
+            '/risk/market/factor/exposures': {'call_type': CallType.GET},
+            '/risk/market/factor/indexcomps': {'call_type': CallType.GET},
+            '/risk/market/factor/residual_covariance': {'call_type': CallType.GET},
+            '/risk/market/factor/returns': {'call_type': CallType.GET},
+
+            # VaR API
+            '/risk/var/compute': {'call_type': CallType.POST},
+            '/risk/var/backtest': {'call_type': CallType.POST},
+
+            # Valuation API
+            '/valuation/portfolio/compute': {'call_type': CallType.POST},
+        }
+
+        # finally, how we do POST currently can also vary by environment
+        self.calling_conventions = {
+            Environment.DEV: CallingConvention.BODY_ONLY,
+            Environment.TEST: CallingConvention.BODY_ONLY,
+            Environment.PRODUCTION: CallingConvention.MIXED
+        }
+
+    def get_call_type(self, latest_path: str) -> CallType:
+        """
+        For the given path (which may be a legacy path) get whether it is GET, POST, etc..
+        """
+        call_type = self._get_path_config(latest_path)['call_type']
+        return call_type
+
+    def get_default_calling_convention(self) -> CallingConvention:
+        """
+        Looks up the calling convention to use for all POST calls; at this time we
+        are not going to get cute and allow per-path calling convention overrides.
+        """
+        return self.calling_conventions[self.env]
+
+    def get_api_path(self, input_path: str):
+        """
+        Given the new API path, return the corresponding path currently supported in production.
+        If there is no configuration for this path, this call raises UnsupportedOperationException.
+        """
+        # first make sure the path is supported
+        assert self._get_path_config(input_path) is not None
+
+        # translate the path, or if no aliasing, keep the input path
+        api_path = self._get_env_path_aliases().get(input_path, input_path)
+
+        # final check: if the translated api_path is listed as unsupported
+        # for this environment, raise UnsupportedOperation
+        if api_path in self.env_override_map[self.env]['unsupported']:
+            raise UnsupportedOperationError(api_path, self.env)
+
+        return api_path
+
+    def _get_env_path_aliases(self) -> Dict[AnyStr, AnyStr]:
+        return self.env_override_map[self.env]['aliases']
+
+    def _get_path_config(self, api_path: str) -> Dict[AnyStr, Any]:
+        # a bit tricky here: we always use new-style API paths to look up the path configuration
+        # to avoid duplication, and so we need to translate any old => new first
+        latest_path = self.path_aliases.inverse.get(api_path, api_path)
+
+        # at this point we have the new-style API path, and so this is expected to
+        # map to a valid configuration
+        path_config = self.path_configs.get(latest_path, None)
+        if not path_config:
+            raise UnknownOperationError(latest_path, self.env)
+        else:
+            return path_config
+
+
 class SerenityClient:
     def __init__(self, config_json: Any, env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL):
         scopes = SerenityClient._get_scopes(env, region)
@@ -46,6 +212,7 @@ class SerenityClient:
         self.env = env
         self.region = region
         self.http_headers = create_auth_headers(credential, scopes, user_app_id=config_json['userApplicationId'])
+        self.api_mapper = APIPathMapper(env)
 
     def call_api(self, api_group: str, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
         """
@@ -55,13 +222,29 @@ class SerenityClient:
         """
         host = SerenityClient._get_url('https://serenity-rest', self.env, self.region)
 
-        api_base_url = f'{host}/{self.version}/{api_group}{api_path}'
-        if body_json:
+        full_api_path = f'/{api_group}{api_path}'
+        full_api_path = self.api_mapper.get_api_path(full_api_path)
+        api_base_url = f'{host}/{self.version}{full_api_path}'
+
+        call_type = self.api_mapper.get_call_type(full_api_path)
+        if call_type == CallType.POST:
+            call_convention = self.api_mapper.get_default_calling_convention()
+            if call_convention == CallingConvention.BODY_ONLY:
+                # this is a hack required until the transition on 1 October 2022;
+                # in MIXED mode only the portfolio parameter for a POST is in the
+                # body; in BODY_ONLY they are a single JSON object
+                body_json_new = dict(params)
+                body_json_new['portfolio'] = body_json
+                body_json = body_json_new
+                params = {}
+
             response_json = requests.post(api_base_url, headers=self.http_headers,
                                           params=params, json=body_json).json()
-        else:
+        elif call_type == CallType.GET:
             response_json = requests.get(api_base_url, headers=self.http_headers,
                                          params=params).json()
+        else:
+            raise ValueError(f'{full_api_path} call type is {call_type}, which is not yet supported')
 
         return response_json
 

@@ -194,22 +194,26 @@ class ModelMetadata:
         Enumerates the names of model classes, groupings of related models like Market Risk,
         Liquidity Risk or Value at Risk.
         """
-        return [model_class['displayName'] for model_class in self.model_classes]
+        # allow for missing displayName until production upgraded
+        return [model_class.get('displayName', model_class['shortName']) for model_class in self.model_classes]
 
     def get_model_names(self) -> List[str]:
         """
         Enumerates the names of all models; this corresponds to code implementations
         of different types of models.
         """
-        return [model['displayName'] for model in self.models]
+        # allow for missing displayName until production upgraded
+        return [model.get('displayName', model['shortName']) for model in self.models]
 
     def get_model_configurations(self) -> Dict[AnyStr, AnyStr]:
         """
-        Enumerates the naems of all model configurations; this corresponds to specific
+        Enumerates the names of all model configurations; this corresponds to specific
         parameterizations of models, e.g. short time horizon and long time horizon
         variations of a factor risk model are two different configurations.
         """
-        return {model_config['shortName']: model_config['displayName'] for model_config in self.model_configs}
+
+        # allow for missing displayName until production upgraded
+        return {model_config['shortName']: model_config.get('displayName', None) for model_config in self.model_configs}
 
     def get_model_configuration_id(self, short_name: str) -> UUID:
         """
