@@ -1,8 +1,11 @@
 from collections import defaultdict
 from enum import Enum
+from dataclasses import dataclass
 from datetime import date
-from typing import Any, AnyStr, Dict, List
+from typing import Any, AnyStr, Dict, List, Tuple
 from uuid import UUID
+
+import pandas as pd
 
 
 class Portfolio:
@@ -138,6 +141,36 @@ class FactorModelOutputs:
     pass
 
 
+@dataclass
+class Risk:
+    factor_risk: float
+    specific_risk: float
+    total_risk: float
+
+
+@dataclass
+class SectorPath:
+    sector_levels: List[str]
+
+    def __str__(self) -> str:
+        return '/'.join(self.sector_levels)
+
+
+@dataclass
+class FactorExposureValue:
+    factor_exposure: float
+    factor_exposure_base_ccy: float
+
+
+@dataclass
+class FactorRisk:
+    factor: str
+    factor_exposure: FactorExposureValue
+    absolute_risk_contribution: float
+    relative_risk_contribution: float
+    marginal_risk_contribution: float
+
+
 class RiskAttributionResult:
     """
     Result class that helps users interpret the fairly complex structured output from
@@ -147,8 +180,290 @@ class RiskAttributionResult:
     for parsing results in your notebook, the corresponding SDK upgrade will take care of
     this migration for you, so we strongly recommend replacing explicit parsing of the
     sector output with use of this object prior to that release.
+
+    If you wish to handle newer-format data, pass backcompat_mode=False. This default will
+    change after the 1 October 2022 release to allow seamless transition.
     """
-    pass
+    def __init__(self, raw_json: Any, backcompat_mode: bool = True):
+        self.raw_json = raw_json
+
+        self.portfolio_variance = None
+        self.portfolio_volatility = None
+
+        self.portfolio_risk_by_factor = {}
+
+        self.absolute_risk_by_asset = {}
+        self.relative_risk_by_asset = {}
+        self.marginal_risk_by_asset = {}
+
+        self.absolute_risk_by_sector = {}
+        self.relative_risk_by_sector = {}
+
+        self.absolute_risk_by_sector_and_factor = {}
+        self.relative_risk_by_sector_and_factor = {}
+
+        self.asset_sectors = {}
+
+        self.sector_factor_exposures = {}
+
+        if backcompat_mode:
+            self._parse_raw_json_backcompat()
+        else:
+            self._parse_raw_json()
+
+    def get_portfolio_volatility(self) -> Risk:
+        """
+        Extracts the top-level risk expressed in volatility.
+        """
+        return self.portfolio_volatility
+
+    def get_portfolio_variance(self) -> Risk:
+        """
+        Extracts the top-level risk expressed in variance.
+        """
+        return self.portfolio_variance
+
+    def get_portfolio_risk_by_factor(self) -> Dict[str, FactorRisk]:
+        """
+        Extracts the per-factor risks as a simple map.
+        """
+        return self.portfolio_risk_by_factor
+
+    def get_absolute_risk_by_asset(self) -> Dict[UUID, Risk]:
+        """
+        Extracts the per-asset absolute risk values as a simple map.
+        """
+        return self.absolute_risk_by_asset
+
+    def get_relative_risk_by_asset(self) -> Dict[UUID, Risk]:
+        """
+        Extracts the per-asset relative risk values as a simple map.
+        """
+        return self.relative_risk_by_asset
+
+    def get_marginal_risk_by_asset(self) -> Dict[UUID, Risk]:
+        """
+        Extracts the per-asset asset marginal risk values as a simple map.
+        """
+        return self.marginal_risk_by_asset
+
+    def get_absolute_risk_by_sector(self) -> Dict[SectorPath, Risk]:
+        """
+        Extracts the per-sector absolute risk values as a simple map;
+        note that every path (e.g. sectorLevel1, sectorLevel1/sectorLevel2, etc.)
+        is represented in the map, so you can pull risks at any level in the tree.
+        """
+        return self.absolute_risk_by_sector
+
+    def get_relative_risk_by_sector(self) -> Dict[SectorPath, Risk]:
+        """
+        Extracts the per-sector relative risk values as a simple map;
+        note that every path (e.g. sectorLevel1, sectorLevel1/sectorLevel2, etc.)
+        is represented in the map, so you can pull risks at any level in the tree.
+        """
+        return self.relative_risk_by_sector
+
+    def get_absolute_risk_by_sector_and_factor(self) -> Dict[SectorPath, Dict[AnyStr, Risk]]:
+        """
+        Extracts the per-sector absolute risk values as a two-level map from SectorPath to factor name to Risk;
+        note only the full sectorLevel1/sectorLevel2/sectorLevel3 is populated for SectorPath.
+        """
+        return self.absolute_risk_by_sector_and_factor
+
+    def get_relative_risk_by_sector_and_factor(self) -> Dict[SectorPath, Risk]:
+        """
+        Extracts the per-sector relative risk values as a two-level map from SectorPath to factor name to Risk;
+        note only the full sectorLevel1/sectorLevel2/sectorLevel3 is populated for SectorPath.
+        """
+        return self.relative_risk_by_sector_and_factor
+
+    def get_asset_sectors(self) -> Dict[UUID, SectorPath]:
+        """
+        Gets a mapping from assetId to SectorPath.
+        """
+        return self.asset_sectors
+
+    def get_sector_factor_exposures(self) -> Dict[SectorPath, Dict[str, FactorExposureValue]]:
+        """
+        Gets a mapping from sector path to the factor exposure for that sector, by factor name.
+        """
+        return self.sector_factor_exposures
+
+    def to_asset_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+        """
+        Creates a DataFrame with a flattened version of all the by-asset risk data, with
+        the asset's sector path provided for reference; note that if you want sector aggregate
+        risks you need to use to_factor_sector_risk_data_frame() as this content is available
+        at multiple levels in the hierarchy whilst this representation is strictly leaf level:
+
+        - sectorLevel1
+        - sectorLevel2
+        - sectorLevel3
+        - assetId
+        - assetNativeSymbol
+        - assetSerenitySymbol
+        - absoluteFactorRisk
+        - absoluteSpecificRisk
+        - absoluteTotalRisk
+        - relativeFactorRisk
+        - relativeSpecificRisk
+        - relativeTotalRisk
+        - marginalFactorRisk
+        - marginalSpecificRisk
+        - marginalTotalRisk
+        """
+        return pd.DataFrame.empty
+
+    def to_sector_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+        """
+        Creates a DataFrame with a flattened version of the all the by-sector risk data:
+
+        - sectorLevel1
+        - sectorLevel2
+        - sectorLevel3
+        - absoluteFactorRisk
+        - absoluteSpecificRisk
+        - absoluteTotalRisk
+        - relativeFactorRisk
+        - relativeSpecificRisk
+        - relativeTotalRisk
+        - factorExposure
+        - factorExposureBaseCcy
+        """
+        return pd.DataFrame.empty
+
+    def to_factor_sector_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+        """
+        Creates a DataFrame with a flattened version of the all the by-sector, by-factor risk data:
+
+        - sectorLevel1
+        - sectorLevel2
+        - sectorLevel3
+        - factor
+        - absoluteFactorRisk
+        - absoluteSpecificRisk
+        - absoluteTotalRisk
+        - relativeFactorRisk
+        - relativeSpecificRisk
+        - relativeTotalRisk
+        - factorExposureBaseCcy
+        """
+        return pd.DataFrame.empty
+
+    def to_factor_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+        """
+        Creates a DataFrame with a flattened version of the all the by-factor risk data at the portfolio level:
+
+        - factor
+        - absoluteRiskContribution
+        - relativeRiskContribution
+        - marginalRiskContribution
+        - factorExposureBaseCcy
+        """
+        return pd.DataFrame.empty
+
+    def get_raw_output(self) -> Any:
+        """
+        Gets the full JSON object returned from the risk attribution API.
+        """
+        return self.raw_json
+
+    def _parse_raw_json(self):
+        """
+        Handles parsing output from Risk Attribution [V2] - Ricardo
+        """
+        self._parse_raw_json_common()
+
+        # the sector breakdown changed between Smith and Ricardo -- this needs different handling
+        self.absolute_risk_by_asset, self.absolute_risk_by_sector, self.absolute_risk_by_sector_and_factor = \
+            self._parse_risk_contribution('absoluteRiskContribution')
+        self.relative_risk_by_asset, self.relative_risk_by_sector, self.relative_risk_by_sector_and_factor = \
+            self._parse_risk_contribution('relativeRiskContribution')
+
+        # handle path-based sector breakdown for exposures; yes, I know the double dictionary comprehension is bonkers
+        self.sector_factor_exposures = {SectorPath(sector_exposure['sectorLevels']): 
+                                        {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
+                                         for factor_exposure in sector_exposure['factorExposure']}
+                                        for sector_exposure in self.raw_json['sectorFactorExposure']}
+
+    def _parse_raw_json_backcompat(self):
+        """
+        Handles parsing output from Risk Attribution [V1] - Smith
+        """
+        # take care of common fields first
+        self._parse_raw_json_common()
+
+        # the sector breakdown changed between Smith and Ricardo -- this needs different handling
+        self.absolute_risk_by_asset, self.absolute_risk_by_sector, self.absolute_risk_by_sector_and_factor = \
+            self._parse_risk_contribution_backcompat('absoluteRiskContribution')
+        self.relative_risk_by_asset, self.relative_risk_by_sector, self.relative_risk_by_sector_and_factor = \
+            self._parse_risk_contribution_backcompat('relativeRiskContribution')
+
+        # factor exposure breakdown by sector in Smith only supports the sector and parent tuple
+        self.sector_factor_exposures = {SectorPath([sector_exposure['parentSector'], sector_exposure['sector']]):
+                                        {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
+                                         for factor_exposure in sector_exposure['factorExposure']}
+                                        for sector_exposure in self.raw_json['sectorFactorExposure']}
+
+    def _parse_raw_json_common(self):
+        """
+        Handles parsing elements unchanged between Smith and Ricardo.
+        """
+        self.portfolio_variance = self._parse_total_risk('volatility')
+        self.portfolio_variance = self._parse_total_risk('variance')
+
+        self.portfolio_risk_by_factor = {risk_obj['factor']: self._parse_factor_risk_object(risk_obj)
+                                         for risk_obj in self.raw_json['factorRisk']}
+
+        self.marginal_risk_by_asset = {UUID(risk_obj['assetId']): self._parse_risk_object(risk_obj)
+                                       for risk_obj in self.raw_json['assetMarginalRisk']}
+
+    def _parse_total_risk(self, risk_measure: str) -> Risk:
+        obj = self.raw_json['totalRisk'][risk_measure]
+        return self._parse_risk_object(obj)
+
+    def _parse_risk_contribution(self, risk_measure: str) -> Tuple:
+        """
+        Handle the Ricardo-style sector paths, which include every segment in the path.
+        """
+        contrib_obj = self.raw_json[risk_measure]
+        risk_by_asset = {UUID(risk_obj['assetId']): self._parse_risk_object(risk_obj)
+                         for risk_obj in contrib_obj['byAsset']}
+        risk_by_sector = {SectorPath(risk_obj['sectorLevels']): self._parse_risk_object(risk_obj)
+                          for risk_obj in contrib_obj['bySector']}
+        risk_by_sector_and_factor = {}  # will be supported in Ricardo
+        return (risk_by_asset, risk_by_sector, risk_by_sector_and_factor)
+
+    def _parse_risk_contribution_backcompat(self, risk_measure: str) -> Tuple:
+        """
+        Handle the Smith-style sector paths, which are parent sector and sector only.
+        """
+        contrib_obj = self.raw_json[risk_measure]
+        risk_by_asset = {UUID(risk_obj['assetId']): self._parse_risk_object(risk_obj)
+                         for risk_obj in contrib_obj['byAsset']}
+        risk_by_sector = {SectorPath([risk_obj['parentSector'], risk_obj['sector']]): self._parse_risk_object(risk_obj)
+                          for risk_obj in contrib_obj['bySector']}
+        risk_by_sector_and_factor = {}  # not supported in Smith
+        return (risk_by_asset, risk_by_sector, risk_by_sector_and_factor)
+
+    def _parse_risk_object(self, obj: Any) -> Risk:
+        factor_risk = obj['factorRisk']
+        specific_risk = obj['specificRisk']
+        total_risk = obj['totalRisk']
+        return Risk(factor_risk, specific_risk, total_risk)
+
+    def _parse_factor_risk_object(self, obj: Any) -> FactorRisk:
+        factor = obj['factor']
+        factor_exposure = self._parse_factor_exposure_object(obj)
+        absolute_contrib = obj['absoluteContribution']
+        relative_contrib = obj['relativeContribution']
+        marginal_contrib = obj['marginalContribution']
+        return FactorRisk(factor, factor_exposure, absolute_contrib, relative_contrib, marginal_contrib)
+
+    def _parse_factor_exposure_object(self, obj: Any) -> FactorExposureValue:
+        factor_exposure = obj['factorExposure']
+        factor_exposure_base_ccy = obj.get('factorExposureBaseCcy', 0)
+        return FactorExposureValue(factor_exposure, factor_exposure_base_ccy)
 
 
 class VaRModel(Enum):
