@@ -155,6 +155,9 @@ class SectorPath:
     def __str__(self) -> str:
         return '/'.join(self.sector_levels)
 
+    def __hash__(self) -> int:
+        return hash(self.__str__())
+
 
 @dataclass
 class FactorExposureValue:
@@ -376,14 +379,14 @@ class RiskAttributionResult:
 
         # the sector breakdown changed between Smith and Ricardo -- this needs different handling
         self.absolute_risk_by_asset, self.absolute_risk_by_sector, self.absolute_risk_by_sector_and_factor = \
-            self._parse_risk_contribution('absoluteRiskContribution')
+            self._parse_risk_contribution('absoluteContributionRisk')
         self.relative_risk_by_asset, self.relative_risk_by_sector, self.relative_risk_by_sector_and_factor = \
-            self._parse_risk_contribution('relativeRiskContribution')
+            self._parse_risk_contribution('relativeContributionRisk')
 
         # handle path-based sector breakdown for exposures; yes, I know the double dictionary comprehension is bonkers
         self.sector_factor_exposures = {SectorPath(sector_exposure['sectorLevels']):
                                         {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
-                                         for factor_exposure in sector_exposure['factorExposure']}
+                                         for factor_exposure in sector_exposure['factorRisk']}
                                         for sector_exposure in self.raw_json['sectorFactorExposure']}
 
     def _parse_raw_json_backcompat(self):
@@ -395,14 +398,14 @@ class RiskAttributionResult:
 
         # the sector breakdown changed between Smith and Ricardo -- this needs different handling
         self.absolute_risk_by_asset, self.absolute_risk_by_sector, self.absolute_risk_by_sector_and_factor = \
-            self._parse_risk_contribution_backcompat('absoluteRiskContribution')
+            self._parse_risk_contribution_backcompat('absoluteContributionRisk')
         self.relative_risk_by_asset, self.relative_risk_by_sector, self.relative_risk_by_sector_and_factor = \
-            self._parse_risk_contribution_backcompat('relativeRiskContribution')
+            self._parse_risk_contribution_backcompat('relativeContributionRisk')
 
         # factor exposure breakdown by sector in Smith only supports the sector and parent tuple
         self.sector_factor_exposures = {SectorPath([sector_exposure['parentSector'], sector_exposure['sector']]):
                                         {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
-                                         for factor_exposure in sector_exposure['factorExposure']}
+                                         for factor_exposure in sector_exposure['factorRisk']}
                                         for sector_exposure in self.raw_json['sectorFactorExposure']}
 
     def _parse_raw_json_common(self):
