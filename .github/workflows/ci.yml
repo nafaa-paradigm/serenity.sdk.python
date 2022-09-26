@@ -31,7 +31,7 @@ jobs:
         run: |
           poetry install --no-root
       - name: Lint
-        run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 5
+        run: flake8 $SRC_DIR tests --count --show-source --statistics --radon-max-cc 8
       - name: Analyze Complexity
         run: radon cc $SRC_DIR
       - name: Test
