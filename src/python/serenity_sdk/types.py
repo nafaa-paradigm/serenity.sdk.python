@@ -315,9 +315,9 @@ class RiskAttributionResult:
         - marginalSpecificRisk
         - marginalTotalRisk
         """
-        return pd.DataFrame.empty
+        return pd.DataFrame()
 
-    def to_sector_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+    def to_sector_risk_data_frame(self) -> pd.DataFrame:
         """
         Creates a DataFrame with a flattened version of the all the by-sector risk data:
 
@@ -333,9 +333,9 @@ class RiskAttributionResult:
         - factorExposure
         - factorExposureBaseCcy
         """
-        return pd.DataFrame.empty
+        return pd.DataFrame()
 
-    def to_factor_sector_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+    def to_factor_sector_risk_data_frame(self) -> pd.DataFrame:
         """
         Creates a DataFrame with a flattened version of the all the by-sector, by-factor risk data:
 
@@ -351,9 +351,9 @@ class RiskAttributionResult:
         - relativeTotalRisk
         - factorExposureBaseCcy
         """
-        return pd.DataFrame.empty
+        return pd.DataFrame()
 
-    def to_factor_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+    def to_factor_risk_data_frame(self) -> pd.DataFrame:
         """
         Creates a DataFrame with a flattened version of the all the by-factor risk data at the portfolio level:
 
@@ -363,7 +363,19 @@ class RiskAttributionResult:
         - marginalRiskContribution
         - factorExposureBaseCcy
         """
-        return pd.DataFrame.empty
+        rows = []
+        items = self.portfolio_risk_by_factor.items()
+        for factor_name, risk in items:
+            rows.append({
+                'factor': factor_name,
+                'absoluteRiskContribution': risk.absolute_risk_contribution,
+                'relativeRiskContribution': risk.relative_risk_contribution,
+                'marginalRiskContribution': risk.marginal_risk_contribution,
+                'factorExposureBaseCcy': risk.factor_exposure.factor_exposure_base_ccy
+            })
+        df = pd.DataFrame(rows)
+        df.set_index('factor', inplace=True)
+        return df
 
     def get_raw_output(self) -> Any:
         """
