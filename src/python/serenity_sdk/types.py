@@ -155,6 +155,9 @@ class SectorPath:
     def __str__(self) -> str:
         return '/'.join(self.sector_levels)
 
+    def __hash__(self) -> int:
+        return hash(self.__str__())
+
 
 @dataclass
 class FactorExposureValue:
@@ -312,9 +315,9 @@ class RiskAttributionResult:
         - marginalSpecificRisk
         - marginalTotalRisk
         """
-        return pd.DataFrame.empty
+        return pd.DataFrame()
 
-    def to_sector_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+    def to_sector_risk_data_frame(self) -> pd.DataFrame:
         """
         Creates a DataFrame with a flattened version of the all the by-sector risk data:
 
@@ -330,9 +333,9 @@ class RiskAttributionResult:
         - factorExposure
         - factorExposureBaseCcy
         """
-        return pd.DataFrame.empty
+        return pd.DataFrame()
 
-    def to_factor_sector_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+    def to_factor_sector_risk_data_frame(self) -> pd.DataFrame:
         """
         Creates a DataFrame with a flattened version of the all the by-sector, by-factor risk data:
 
@@ -348,9 +351,9 @@ class RiskAttributionResult:
         - relativeTotalRisk
         - factorExposureBaseCcy
         """
-        return pd.DataFrame.empty
+        return pd.DataFrame()
 
-    def to_factor_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
+    def to_factor_risk_data_frame(self) -> pd.DataFrame:
         """
         Creates a DataFrame with a flattened version of the all the by-factor risk data at the portfolio level:
 
@@ -360,7 +363,19 @@ class RiskAttributionResult:
         - marginalRiskContribution
         - factorExposureBaseCcy
         """
-        return pd.DataFrame.empty
+        rows = []
+        items = self.portfolio_risk_by_factor.items()
+        for factor_name, risk in items:
+            rows.append({
+                'factor': factor_name,
+                'absoluteRiskContribution': risk.absolute_risk_contribution,
+                'relativeRiskContribution': risk.relative_risk_contribution,
+                'marginalRiskContribution': risk.marginal_risk_contribution,
+                'factorExposureBaseCcy': risk.factor_exposure.factor_exposure_base_ccy
+            })
+        df = pd.DataFrame(rows)
+        df.set_index('factor', inplace=True)
+        return df
 
     def get_raw_output(self) -> Any:
         """
@@ -376,14 +391,14 @@ class RiskAttributionResult:
 
         # the sector breakdown changed between Smith and Ricardo -- this needs different handling
         self.absolute_risk_by_asset, self.absolute_risk_by_sector, self.absolute_risk_by_sector_and_factor = \
-            self._parse_risk_contribution('absoluteRiskContribution')
+            self._parse_risk_contribution('absoluteContributionRisk')
         self.relative_risk_by_asset, self.relative_risk_by_sector, self.relative_risk_by_sector_and_factor = \
-            self._parse_risk_contribution('relativeRiskContribution')
+            self._parse_risk_contribution('relativeContributionRisk')
 
         # handle path-based sector breakdown for exposures; yes, I know the double dictionary comprehension is bonkers
         self.sector_factor_exposures = {SectorPath(sector_exposure['sectorLevels']):
                                         {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
-                                         for factor_exposure in sector_exposure['factorExposure']}
+                                         for factor_exposure in sector_exposure['factorRisk']}
                                         for sector_exposure in self.raw_json['sectorFactorExposure']}
 
     def _parse_raw_json_backcompat(self):
@@ -395,14 +410,14 @@ class RiskAttributionResult:
 
         # the sector breakdown changed between Smith and Ricardo -- this needs different handling
         self.absolute_risk_by_asset, self.absolute_risk_by_sector, self.absolute_risk_by_sector_and_factor = \
-            self._parse_risk_contribution_backcompat('absoluteRiskContribution')
+            self._parse_risk_contribution_backcompat('absoluteContributionRisk')
         self.relative_risk_by_asset, self.relative_risk_by_sector, self.relative_risk_by_sector_and_factor = \
-            self._parse_risk_contribution_backcompat('relativeRiskContribution')
+            self._parse_risk_contribution_backcompat('relativeContributionRisk')
 
         # factor exposure breakdown by sector in Smith only supports the sector and parent tuple
         self.sector_factor_exposures = {SectorPath([sector_exposure['parentSector'], sector_exposure['sector']]):
                                         {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
-                                         for factor_exposure in sector_exposure['factorExposure']}
+                                         for factor_exposure in sector_exposure['factorRisk']}
                                         for sector_exposure in self.raw_json['sectorFactorExposure']}
 
     def _parse_raw_json_common(self):
