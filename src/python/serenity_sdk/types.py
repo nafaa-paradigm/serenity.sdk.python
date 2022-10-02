@@ -41,6 +41,7 @@ class MarkTime(Enum):
     UTC = 'UTC'
 
 
+@dataclass
 class CalculationContext:
     """
     Paramter object that groups together the common inputs for risk calculations. Everything
@@ -151,6 +152,14 @@ class Risk:
 @dataclass
 class SectorPath:
     sector_levels: List[str]
+
+    def create_lookup_key(self, leaf_name: str):
+        """
+        Helper function that joins the path segments with a terminal
+        node like an asset ID or a factor name. This gives you a unique
+        key for building tables that are indexed by these tuples.
+        """
+        return f'{str(self)}/{leaf_name}'
 
     def __str__(self) -> str:
         return '/'.join(self.sector_levels)
@@ -315,11 +324,17 @@ class RiskAttributionResult:
         - marginalSpecificRisk
         - marginalTotalRisk
         """
-        return pd.DataFrame()
+        rows = []
+        df = pd.DataFrame(rows)
+        return df
 
     def to_sector_risk_data_frame(self) -> pd.DataFrame:
         """
-        Creates a DataFrame with a flattened version of the all the by-sector risk data:
+        Creates a DataFrame with a flattened version of the all the by-sector risk data; depending
+        on whether it is based on old-style parentSector / Sector vs. full sector levels, you
+        will get back a multi-level index with two or three index columns, with various intermediate
+        level in the sector hierarchy populated. This is really better visualized as a treetable, and
+        the Serenity front-end provides that view.
 
         - sectorLevel1
         - sectorLevel2
@@ -330,10 +345,14 @@ class RiskAttributionResult:
         - relativeFactorRisk
         - relativeSpecificRisk
         - relativeTotalRisk
-        - factorExposure
-        - factorExposureBaseCcy
         """
-        return pd.DataFrame()
+
+        # bring together the risks
+        abs_risk_df = self._to_by_sector_df(self.absolute_risk_by_sector, 'absolute')
+        rel_risk_df = self._to_by_sector_df(self.relative_risk_by_sector, 'relative')
+        df = pd.merge(abs_risk_df, rel_risk_df, left_index=True, right_index=True)
+        df.sort_index(inplace=True)
+        return df
 
     def to_factor_sector_risk_data_frame(self) -> pd.DataFrame:
         """
@@ -349,9 +368,12 @@ class RiskAttributionResult:
         - relativeFactorRisk
         - relativeSpecificRisk
         - relativeTotalRisk
+        - factorExposure
         - factorExposureBaseCcy
         """
-        return pd.DataFrame()
+        rows = []
+        df = pd.DataFrame(rows)
+        return df
 
     def to_factor_risk_data_frame(self) -> pd.DataFrame:
         """
@@ -398,7 +420,7 @@ class RiskAttributionResult:
         # handle path-based sector breakdown for exposures; yes, I know the double dictionary comprehension is bonkers
         self.sector_factor_exposures = {SectorPath(sector_exposure['sectorLevels']):
                                         {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
-                                         for factor_exposure in sector_exposure['factorRisk']}
+                                         for factor_exposure in sector_exposure['factorExposure']}
                                         for sector_exposure in self.raw_json['sectorFactorExposure']}
 
     def _parse_raw_json_backcompat(self):
@@ -479,6 +501,33 @@ class RiskAttributionResult:
         factor_exposure = obj['factorExposure']
         factor_exposure_base_ccy = obj.get('factorExposureBaseCcy', 0)
         return FactorExposureValue(factor_exposure, factor_exposure_base_ccy)
+
+    def _to_by_sector_df(self, sector_risks: Dict[SectorPath, Risk], prefix: str):
+        index_cols = []
+        rows = []
+        items = sector_risks.items()
+        for sector_path, risk in items:
+            cols = {
+                f'{prefix}FactorRisk': risk.factor_risk,
+                f'{prefix}SpecificRisk': risk.specific_risk,
+                f'{prefix}TotalRisk': risk.total_risk
+            }
+            index_cols = RiskAttributionResult._append_sector_level_cols(sector_path, cols, rows)
+        df = pd.DataFrame(rows)
+        df.set_index(index_cols, inplace=True)
+        return df
+
+    @staticmethod
+    def _append_sector_level_cols(sector_path: SectorPath, cols: Dict[AnyStr, float], rows: List[Dict]) -> List[str]:
+        index_cols = []
+        ndx = 1
+        for sector_level in sector_path.sector_levels:
+            col_name = f'sectorLevel{ndx}'
+            cols[col_name] = sector_level
+            index_cols.append(col_name)
+            ndx = ndx + 1
+        rows.append(cols)
+        return index_cols
 
 
 class VaRModel(Enum):

@@ -1,3 +1,4 @@
+import humps
 import json
 import os.path
 import requests
@@ -233,7 +234,9 @@ class SerenityClient:
                 # this is a hack required until the transition on 1 October 2022;
                 # in MIXED mode only the portfolio parameter for a POST is in the
                 # body; in BODY_ONLY they are a single JSON object
-                body_json_new = dict(params)
+                body_json_new = {}
+                for key, value in params.items():
+                    body_json_new[humps.camelize(key)] = value
                 body_json_new['portfolio'] = body_json
                 body_json = body_json_new
                 params = {}
@@ -388,7 +391,13 @@ class RiskApi(SerenityApi):
         Note that sector_taxonomy support will be dropped with the next release, once the refdata endpoint
         for looking up sector_taxonomy_id is available.
         """
-        pass
+        backcompat_mode = (self.client.env == Environment.PRODUCTION)
+        params = {'as_of_date': ctx.as_of_date,
+                  'model_config_id': str(ctx.model_config_id)}
+        body_json = {'assetPositions': portfolio.to_asset_positions()}
+        risk_attribution_json = self._call_api('/market/factor/attribution', params, body_json)
+        result = RiskAttributionResult(risk_attribution_json, backcompat_mode=backcompat_mode)
+        return result
 
     def compute_var(self, ctx: CalculationContext,
                     portfolio: Portfolio,
