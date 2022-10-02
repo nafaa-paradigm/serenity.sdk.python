@@ -1,11 +1,14 @@
 from collections import defaultdict
 from enum import Enum
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any, AnyStr, Dict, List, Tuple
 from uuid import UUID
 
 import pandas as pd
+
+
+STD_DATE_FMT = '%Y-%m-%d'
 
 
 class Portfolio:
@@ -19,6 +22,12 @@ class Portfolio:
     """
     def __init__(self, assets: Dict[UUID, float]):
         self.assets = assets
+
+    def get_assets(self) -> Dict[UUID, float]:
+        """
+        Gets the underlying map of asset ID to qty.
+        """
+        return self.assets
 
     def to_asset_positions(self) -> List[Dict[AnyStr, Any]]:
         """
@@ -41,15 +50,36 @@ class MarkTime(Enum):
     UTC = 'UTC'
 
 
+class CashTreatment(Enum):
+    """
+    How should the portfolio valuator treat stablecoins? Like cash, or tokens? If CashTreatment
+    is FIAT_PEGGED_STABLECOINS, it will group together USD and USD-pegged stablecoins as "cash."
+    """
+    FIAT_PEGGED_STABLECOINS = 'FIAT_PEGGED_STABLECOINS'
+    FIAT_ONLY = 'FIAT_ONLY'
+
+
 @dataclass
 class CalculationContext:
     """
-    Paramter object that groups together the common inputs for risk calculations. Everything
+    Parameter object that groups together the common inputs for risk calculations. Everything
     gets defaulted, so you need only populate any overrides.
     """
     as_of_date: date = None
     model_config_id: UUID = None
     mark_time: MarkTime = MarkTime.NY_EOD
+    base_currency_id: UUID = None
+
+
+@dataclass
+class PricingContext:
+    """
+    Parameter object that groups together the common inputs for valuation. Everything
+    gets defaulted, so you need only populate any overrides.
+    """
+    as_of_date: date = None
+    mark_time: MarkTime = MarkTime.NY_EOD
+    cash_treatment: CashTreatment = CashTreatment.FIAT_ONLY
     base_currency_id: UUID = None
 
 
@@ -78,9 +108,11 @@ class AssetMaster:
         self.asset_id_map = defaultdict(dict)
         self.symbol_map = defaultdict(dict)
         for summary in asset_summaries:
-            asset_id = summary['assetId']
+            asset_id = UUID(summary['assetId'])
             native_symbol = summary['nativeSymbol']
             asset_symbol = summary['assetSymbol']
+
+            # add in aliases from various vendors
             for xref_symbol in summary['xrefSymbols']:
                 authority = xref_symbol['authority']['name']
                 symbol = xref_symbol['symbol']
@@ -90,8 +122,10 @@ class AssetMaster:
                 self.asset_id_map[asset_id]['SERENITY'] = asset_symbol
 
                 self.symbol_map[authority][symbol] = asset_id
-                self.symbol_map['NATIVE'][native_symbol] = asset_id
-                self.symbol_map['SERENITY'][asset_symbol] = asset_id
+
+            # add in pseudo-symbols for looking up blockchain-native and Serenity symbologies
+            self.symbol_map['NATIVE'][native_symbol] = asset_id
+            self.symbol_map['SERENITY'][asset_symbol] = asset_id
 
     def create_portfolio(self, positions: Dict[AnyStr, float], symbology: str = 'NATIVE') -> Portfolio:
         """
@@ -110,11 +144,11 @@ class AssetMaster:
         """
         asset_id_symbols = self.asset_id_map.get(asset_id, None)
         if not asset_id_symbols:
-            raise ValueError(f'Unknown asset_id: {asset_id}')
+            raise ValueError(f'Unknown asset_id: {str(asset_id)}')
 
         symbol = asset_id_symbols.get(symbology, None)
         if not symbol:
-            raise ValueError(f'Unknown symbology {symbology} for asset_id: {asset_id}')
+            raise ValueError(f'Unknown symbology {symbology} for asset_id: {str(asset_id)}')
 
         return symbol
 
@@ -204,9 +238,11 @@ class RiskAttributionResult:
         self.absolute_risk_by_sector = {}
         self.relative_risk_by_sector = {}
 
+        # internal only: we do not yet return the necessary bySector attribute
+        # in any of the Risk Attribution API versions, and so taking out the
+        # public method calls to get at this and produce DataFrames until ready.
         self.absolute_risk_by_sector_and_factor = {}
         self.relative_risk_by_sector_and_factor = {}
-
         self.asset_sectors = {}
 
         self.sector_factor_exposures = {}
@@ -265,23 +301,9 @@ class RiskAttributionResult:
         """
         return self.relative_risk_by_sector
 
-    def get_absolute_risk_by_sector_and_factor(self) -> Dict[SectorPath, Dict[AnyStr, Risk]]:
-        """
-        Extracts the per-sector absolute risk values as a two-level map from SectorPath to factor name to Risk;
-        note only the full sectorLevel1/sectorLevel2/sectorLevel3 is populated for SectorPath.
-        """
-        return self.absolute_risk_by_sector_and_factor
-
-    def get_relative_risk_by_sector_and_factor(self) -> Dict[SectorPath, Risk]:
-        """
-        Extracts the per-sector relative risk values as a two-level map from SectorPath to factor name to Risk;
-        note only the full sectorLevel1/sectorLevel2/sectorLevel3 is populated for SectorPath.
-        """
-        return self.relative_risk_by_sector_and_factor
-
     def get_asset_sectors(self) -> Dict[UUID, SectorPath]:
         """
-        Gets a mapping from assetId to SectorPath.
+        Gets a mapping from assetId to SectorPath. Not yet supported.
         """
         return self.asset_sectors
 
@@ -293,14 +315,8 @@ class RiskAttributionResult:
 
     def to_asset_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
         """
-        Creates a DataFrame with a flattened version of all the by-asset risk data, with
-        the asset's sector path provided for reference; note that if you want sector aggregate
-        risks you need to use to_factor_sector_risk_data_frame() as this content is available
-        at multiple levels in the hierarchy whilst this representation is strictly leaf level:
+        Creates a DataFrame with a flattened version of all the by-asset risk data:
 
-        - sectorLevel1
-        - sectorLevel2
-        - sectorLevel3
         - assetId
         - assetNativeSymbol
         - assetSerenitySymbol
@@ -314,8 +330,15 @@ class RiskAttributionResult:
         - marginalSpecificRisk
         - marginalTotalRisk
         """
-        rows = []
-        df = pd.DataFrame(rows)
+        asset_info_df = self._to_asset_info_df(self.absolute_risk_by_asset.keys(), asset_master)
+        abs_risk_df = self._to_by_asset_df(self.absolute_risk_by_asset, 'absolute')
+        rel_risk_df = self._to_by_asset_df(self.relative_risk_by_asset, 'relative')
+        marginal_risk_df = self._to_by_asset_df(self.marginal_risk_by_asset, 'marginal')
+        df = asset_info_df
+        df = pd.merge(df, abs_risk_df, left_index=True, right_index=True)
+        df = pd.merge(df, rel_risk_df, left_index=True, right_index=True)
+        df = pd.merge(df, marginal_risk_df, left_index=True, right_index=True)
+        df.sort_values(by='assetSerenitySymbol', inplace=True)
         return df
 
     def to_sector_risk_data_frame(self) -> pd.DataFrame:
@@ -336,33 +359,10 @@ class RiskAttributionResult:
         - relativeSpecificRisk
         - relativeTotalRisk
         """
-
-        # bring together the risks
         abs_risk_df = self._to_by_sector_df(self.absolute_risk_by_sector, 'absolute')
         rel_risk_df = self._to_by_sector_df(self.relative_risk_by_sector, 'relative')
         df = pd.merge(abs_risk_df, rel_risk_df, left_index=True, right_index=True)
         df.sort_index(inplace=True)
-        return df
-
-    def to_factor_sector_risk_data_frame(self) -> pd.DataFrame:
-        """
-        Creates a DataFrame with a flattened version of the all the by-sector, by-factor risk data:
-
-        - sectorLevel1
-        - sectorLevel2
-        - sectorLevel3
-        - factor
-        - absoluteFactorRisk
-        - absoluteSpecificRisk
-        - absoluteTotalRisk
-        - relativeFactorRisk
-        - relativeSpecificRisk
-        - relativeTotalRisk
-        - factorExposure
-        - factorExposureBaseCcy
-        """
-        rows = []
-        df = pd.DataFrame(rows)
         return df
 
     def to_factor_risk_data_frame(self) -> pd.DataFrame:
@@ -476,6 +476,51 @@ class RiskAttributionResult:
         df.set_index(index_cols, inplace=True)
         return df
 
+    def _to_by_sector_and_factor_df(self, risks: Dict[SectorPath, Dict[AnyStr, Risk]], prefix: str):
+        index_cols = []
+        rows = []
+        for sector_path, factor_risk in risks.items():
+            for factor, risk in factor_risk.items():
+                cols = {
+                    'factor': factor,
+                    f'{prefix}FactorRisk': risk.factor_risk,
+                    f'{prefix}SpecificRisk': risk.specific_risk,
+                    f'{prefix}TotalRisk': risk.total_risk
+                }
+                index_cols = RiskAttributionResult._append_sector_level_cols(sector_path, cols, rows)
+                index_cols.append('factor')
+        df = pd.DataFrame(rows)
+        df.set_index(index_cols, inplace=True)
+        return df
+
+    def _to_asset_info_df(self, asset_ids: List[UUID], asset_master: AssetMaster):
+        rows = []
+        for asset_id in asset_ids:
+            native_sym = asset_master.get_symbol_by_id(asset_id, 'NATIVE')
+            serenity_sym = asset_master.get_symbol_by_id(asset_id, symbology='SERENITY')
+            rows.append({
+                'assetId': str(asset_id),
+                'assetNativeSymbol': native_sym,
+                'assetSerenitySymbol': serenity_sym
+            })
+        df = pd.DataFrame(rows)
+        df.set_index('assetId', inplace=True)
+        return df
+
+    def _to_by_asset_df(self, asset_risks: Dict[UUID, Risk], prefix: str):
+        rows = []
+        for asset_id, risk in asset_risks.items():
+            cols = {
+                'assetId': str(asset_id),
+                f'{prefix}FactorRisk': risk.factor_risk,
+                f'{prefix}SpecificRisk': risk.specific_risk,
+                f'{prefix}TotalRisk': risk.total_risk
+            }
+            rows.append(cols)
+        df = pd.DataFrame(rows)
+        df.set_index('assetId', inplace=True)
+        return df
+
     @staticmethod
     def _append_sector_level_cols(sector_path: SectorPath, cols: Dict[AnyStr, float], rows: List[Dict]) -> List[str]:
         index_cols = []
@@ -489,27 +534,178 @@ class RiskAttributionResult:
         return index_cols
 
 
-class VaRModel(Enum):
-    """
-    Temporary workaround before the next release that lets you specify the VaR model type with an
-    enum rather than via a modelConfigId UUID.
-    """
-    VAR_HISTORICAL = 'VAR_HISTORICAL'
-    VAR_PARAMETRIC_NORMAL = 'VAR_PARAMETRIC_NORMAL'
-
-
-class VaRResult:
-    """
-    Result class that helps users interpret the output of the VaR model, e.g. processing quartiles.
-    """
+class Quantile:
+    # forward declaration
     pass
 
 
+@dataclass
+class Quantile:
+    """
+    Helper class that repersents a single VaR quantile, e.g. 90th percentile VaR.
+    """
+    quantile: float
+    var_absolute: float
+    var_relative: float
+
+    @staticmethod
+    def parse(raw_json: Any) -> Quantile:
+        quantile = raw_json['quantile']
+        var_absolute = raw_json['varAbsolute']
+        var_relative = raw_json['varRelative']
+        return Quantile(quantile, var_absolute, var_relative)
+
+
+class VaRBreach:
+    # forward declaration
+    pass
+
+
+@dataclass
+class VaRBreach:
+    """
+    Helper class that represents a single VaR breach, a day when the portfolio losses exceeded the forecast.
+    """
+    breach_date: date
+    portfolio_loss_absolute: float
+    portfolio_loss_relative: float
+    var_level_absolute: float
+    var_level_relative: float
+
+    @staticmethod
+    def parse(raw_json: Any) -> VaRBreach:
+        breach_date = datetime.strptime(raw_json['breachDate'], STD_DATE_FMT)
+        portfolio_loss_absolute = raw_json['portfolioLossAbsolute']
+        portfolio_loss_relative = raw_json['portfolioLossRelative']
+        var_level_absolute = raw_json['varLevelAbsolute']
+        var_level_relative = raw_json['varLevelRelative']
+        return VaRBreach(breach_date, portfolio_loss_absolute, portfolio_loss_relative,
+                         var_level_absolute, var_level_relative)
+
+
+class VaRResult:
+    # forward declaration
+    pass
+
+
+@dataclass
+class VaRResult:
+    """
+    Result class that helps users interpret the output of the VaR model, e.g. processing quantiles.
+    """
+    run_date: date
+    baseline: float
+    quantiles: List[Quantile]
+    excluded_assets: List[UUID]
+
+    @staticmethod
+    def parse(raw_json: Any) -> VaRResult:
+        run_date = datetime.strptime(raw_json['runDate'], STD_DATE_FMT)
+        baseline = raw_json['baseline']
+        quantiles = [Quantile.parse(quantile) for quantile in raw_json['quantiles']]
+        excluded_assets = [UUID(asset_id) for asset_id in raw_json['excludedAssetIds']]
+        return VaRResult(run_date, baseline, quantiles, excluded_assets)
+
+
+class VaRBacktestResult:
+    # forward declaration
+    pass
+
+
+@dataclass
 class VaRBacktestResult:
     """
     Result class that helps users interpret the output of the VaR model backtester, e.g. processing breaches.
     """
+    results: List[VaRResult]
+    breaches: List[VaRBreach]
+
+    @staticmethod
+    def parse(raw_json: Any) -> VaRBacktestResult:
+        results = [VaRResult.parse(result) for result in raw_json['results']]
+        breaches = [VaRBreach.parse(breach) for breach in raw_json['breaches']]
+        return VaRBacktestResult(results, breaches)
+
+
+class PortfolioValue:
+    # forward declaration
     pass
+
+
+@dataclass
+class PortfolioValue:
+    net_holdings_value: float
+    gross_holdings_value: float
+    cash_position_value: float
+    net_asset_value: float
+
+    @staticmethod
+    def parse(raw_json: Any) -> PortfolioValue:
+        net_holdings_value = raw_json['netHoldingsValue']
+        gross_holdings_value = raw_json['grossHoldingsValue']
+        cash_position_value = raw_json['cashPositionValue']
+        net_asset_value = raw_json['netAssetValue']
+        return PortfolioValue(net_holdings_value, gross_holdings_value, cash_position_value, net_asset_value)
+
+
+class PositionValue:
+    # forward declaration
+    pass
+
+
+@dataclass
+class PositionValue:
+    value: float
+    price: float
+    quantity: float
+    weight: float
+
+    @staticmethod
+    def parse(raw_json: Any) -> PositionValue:
+        value = raw_json['value']
+        price = raw_json['price']
+        quantity = raw_json['qty']
+        weight = raw_json['weight']
+        return PositionValue(value, price, quantity, weight)
+
+
+class PositionValues:
+    # forward declaration
+    pass
+
+
+@dataclass
+class PositionValues:
+    close: PositionValue
+    previous: PositionValue
+
+    @staticmethod
+    def parse(raw_json: Any) -> PositionValues:
+        close = PositionValue.parse(raw_json['close'])
+        previous = PositionValue.parse(raw_json['previous'])
+        return PositionValues(close, previous)
+
+
+class ValuationResult:
+    # forward declaration
+    pass
+
+
+@dataclass
+class ValuationResult:
+    close: PortfolioValue
+    previous: PortfolioValue
+    positions: Dict[UUID, PositionValue]
+
+    @staticmethod
+    def parse(raw_json: Any) -> ValuationResult:
+        close = PortfolioValue.parse(raw_json['close'])
+        previous = PortfolioValue.parse(raw_json['previous'])
+        positions = {
+            UUID(asset_id): PositionValues.parse(position_values)
+            for asset_id, position_values in raw_json['positions'].items()
+        }
+        return ValuationResult(close, previous, positions)
 
 
 class ModelMetadata:

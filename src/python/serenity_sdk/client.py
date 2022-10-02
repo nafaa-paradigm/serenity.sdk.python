@@ -3,6 +3,8 @@ import json
 import os.path
 import requests
 
+import pandas as pd
+
 from abc import ABC
 from bidict import bidict
 from datetime import date
@@ -11,12 +13,11 @@ from typing import Any, AnyStr, Dict, List
 from uuid import UUID
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
-from serenity_sdk.types import (AssetMaster, CalculationContext, FactorModelOutputs, ModelMetadata,
-                                Portfolio, RiskAttributionResult, SectorTaxonomy, VaRBacktestResult,
-                                VaRModel, VaRResult)
+from serenity_sdk.types import (STD_DATE_FMT, AssetMaster, CalculationContext, FactorModelOutputs, ModelMetadata,
+                                Portfolio, PricingContext, RiskAttributionResult, SectorTaxonomy,
+                                ValuationResult, VaRBacktestResult, VaRResult)
 
 SERENITY_API_VERSION = 'v1'
-AS_OF_DATE_FMT = '%Y-%m-%d'
 
 
 class Environment(Enum):
@@ -46,6 +47,14 @@ class CallType(Enum):
     PATCH = 'PATCH'
     POST = 'POST'
     PUT = 'PUT'
+
+
+class SerenityError(Exception):
+    """
+    Generic error when the API fails, e.g. due to body parsing error on POST
+    """
+    def __init__(self, detail: Any):
+        super().__init__(f'Generic API error: {detail}')
 
 
 class UnknownOperationError(Exception):
@@ -204,16 +213,17 @@ class SerenityClient:
 
         call_type = self.api_mapper.get_call_type(full_api_path)
         if call_type == CallType.POST:
-            # this is a hack to help anyone with an "old-style" notebook
-            # who is setting portfolio in the body and as_of_date and other
-            # secondary parameters in request parameters: with this latest
-            # version of the backend they get merged into a single JSON input
-            body_json_new = {}
-            for key, value in params.items():
-                body_json_new[humps.camelize(key)] = value
-            body_json_new['portfolio'] = body_json
-            body_json = body_json_new
-            params = {}
+            if params:
+                # this is a hack to help anyone with an "old-style" notebook
+                # who is setting portfolio in the body and as_of_date and other
+                # secondary parameters in request parameters: with this latest
+                # version of the backend they get merged into a single JSON input
+                body_json_new = {}
+                for key, value in params.items():
+                    body_json_new[humps.camelize(key)] = value
+                body_json_new['portfolio'] = body_json
+                body_json = body_json_new
+                params = {}
 
             response_json = requests.post(api_base_url, headers=self.http_headers,
                                           params=params, json=body_json).json()
@@ -222,6 +232,9 @@ class SerenityClient:
                                          params=params).json()
         else:
             raise ValueError(f'{full_api_path} call type is {call_type}, which is not yet supported')
+
+        if 'detail' in response_json:
+            raise SerenityError(response_json['detail'])
 
         return response_json
 
@@ -268,7 +281,7 @@ class SerenityApi(ABC):
         if as_of_date is None:
             return {}
         else:
-            return {'asOfDate': as_of_date.strftime(AS_OF_DATE_FMT)}
+            return {'asOfDate': as_of_date.strftime(STD_DATE_FMT)}
 
 
 class RefdataApi(SerenityApi):
@@ -365,10 +378,13 @@ class RiskApi(SerenityApi):
         Note that sector_taxonomy support will be dropped with the next release, once the refdata endpoint
         for looking up sector_taxonomy_id is available.
         """
-        params = {'as_of_date': ctx.as_of_date,
-                  'model_config_id': str(ctx.model_config_id)}
-        body_json = {'assetPositions': portfolio.to_asset_positions()}
-        risk_attribution_json = self._call_api('/market/factor/attribution', params, body_json)
+        body_json = {
+            **self._create_std_params(ctx.as_of_date),
+            'portfolio': {'assetPositions': portfolio.to_asset_positions()},
+            'modelConfigId': str(ctx.model_config_id),
+            'assetPositions': portfolio.to_asset_positions()
+        }
+        risk_attribution_json = self._call_api('/market/factor/attribution', {}, body_json)
         result = RiskAttributionResult(risk_attribution_json)
         return result
 
@@ -377,30 +393,174 @@ class RiskApi(SerenityApi):
                     horizon_days: int = 1,
                     lookback_period: int = 1,
                     quantiles: List[float] = [95, 97.5, 99],
-                    var_model: VaRModel = VaRModel.VAR_PARAMETRIC_NORMAL) -> VaRResult:
+                    var_model: str = 'VAR_PARAMETRIC_NORMAL') -> VaRResult:
         """
-        Uses a chosen model to compute Value at Risk (VaR) for a portfolio. In the coming release
-        this operation will be upgraded to integrate with the Model API and will let you identify
-        the model to use by an ID looked up in the model catalog. Note there is a workaround here:
-        from the next release, the var_model parameter will be dropped, so until then it's best
-        to take the default; the CalculationContext will be used after that release, which will
-        allow many more model parameterizations on the backend.
+        Uses a chosen model to compute Value at Risk (VaR) for a portfolio. Note: this API
+        currently ignores CalculationContext.model_config_id, so if you want to use a
+        different model you must set var_model to either 'VAR_PARAMETRIC_NORMAL' or
+        'VAR_HISTORICAL' -- this will be fixed in the next production upgrade.
         """
-        pass
+        request = {
+            **self._create_std_params(ctx.as_of_date),
+            'portfolio': {'assetPositions': portfolio.to_asset_positions()},
+            'modelId': var_model,
+            'markTime': ctx.mark_time.value,
+            'horizonDays': horizon_days,
+            'lookbackPeriod': lookback_period,
+            'quantiles': quantiles
+        }
+        raw_json = self._call_api('/var/compute', {}, request)
+        return VaRResult.parse(raw_json)
 
     def compute_var_backtest(self, ctx: CalculationContext,
                              portfolio: Portfolio,
                              start_date: date,
                              end_date: date,
                              lookback_period: int = 1,
-                             quantile: float = 99) -> VaRBacktestResult:
+                             quantile: float = 99,
+                             var_model: str = 'VAR_PARAMETRIC_NORMAL') -> VaRBacktestResult:
         """
         Performs a VaR backtest, a run of the VaR model for a given portfolio over a time period.
         The goal of the backtest to identify days where the losses exceeded the model prediction,
         i.e. days with VaR breaches. Too many such breaches can lower confidence in the VaR model,
-        so it is an important test of the model's predictive power.
+        so it is an important test of the model's predictive power. Note: this API
+        currently ignores CalculationContext.model_config_id, so if you want to use a
+        different model you must set var_model to either 'VAR_PARAMETRIC_NORMAL' or
+        'VAR_HISTORICAL' -- this will be fixed in the next production upgrade.
         """
-        pass
+        request = {
+            **self._create_std_params(ctx.as_of_date),
+            'portfolio': {'assetPositions': portfolio.to_asset_positions()},
+            'startDate': start_date.strftime(STD_DATE_FMT),
+            'endDate': end_date.strftime(STD_DATE_FMT),
+            'modelId': var_model,
+            'markTime': ctx.mark_time.value,
+            'lookbackPeriod': lookback_period,
+            'quantile': quantile
+        }
+        raw_json = self._call_api('/var/backtest', {}, request)
+        return VaRBacktestResult.parse(raw_json)
+
+    def get_asset_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
+        """
+        Gets the asset covariance matrix with asset ID's translated to native symbols, as a DataFrame.
+        """
+        params = RiskApi._create_get_params(ctx)
+        raw_json = self._call_api('/market/factor/asset_covariance', params)
+        return RiskApi._asset_matrix_to_dataframe(raw_json['matrix'], asset_master)
+
+    def get_asset_residual_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
+        """
+        Gets the asset residual covariance matrix with asset ID's translated to native symbols, as a DataFrame.
+        """
+        params = RiskApi._create_get_params(ctx)
+        raw_json = self._call_api('/market/factor/residual_covariance', params)
+        rows = [{'assetId': element['assetId1'],
+                 'symbol': asset_master.get_symbol_by_id(UUID(element['assetId1'])),
+                 'value': element['value']} for element in raw_json['matrix']]
+        return pd.DataFrame(rows)
+
+    def get_factor_correlation_matrix(self, ctx: CalculationContext) -> pd.DataFrame:
+        """
+        Gets the factor correlation matrix.
+        """
+        params = RiskApi._create_get_params(ctx)
+        raw_json = self._call_api('/market/factor/correlation', params)
+        return RiskApi._factor_matrix_to_dataframe(raw_json['matrix'])
+
+    def get_factor_covariance_matrix(self, ctx: CalculationContext) -> pd.DataFrame:
+        """
+        Gets the factor covariance matrix.
+        """
+        params = RiskApi._create_get_params(ctx)
+        raw_json = self._call_api('/market/factor/covariance', params)
+        return RiskApi._factor_matrix_to_dataframe(raw_json['matrix'])
+
+    def get_asset_factor_exposures(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
+        """
+        Gets the factor loadings by assets as a DataFrame.
+        """
+        def map_asset_id(asset_id: str):
+            return asset_master.get_symbol_by_id(UUID(asset_id))
+
+        params = RiskApi._create_get_params(ctx)
+        raw_json = self._call_api('/market/factor/exposures', params)
+        factor_exposures = pd.DataFrame.from_dict(raw_json['matrix'])
+        factor_exposures = factor_exposures.pivot(index='assetId', columns='factor', values='value')
+        factor_exposures.set_index(factor_exposures.index.map(map_asset_id), inplace=True)
+
+        return factor_exposures
+
+    def get_factor_returns(self, ctx: CalculationContext) -> pd.DataFrame:
+        """
+        Gets the factor returns as a DataFrame.
+        """
+        params = RiskApi._create_get_params(ctx)
+        raw_json = self._call_api('/market/factor/returns', params)
+        factor_returns = pd.DataFrame.from_dict(raw_json['factorReturns']).pivot(index='closeDate', columns='factor',
+                                                                                 values='value')
+        return factor_returns.style.format("{:.1%}")
+
+    def get_factor_portfolios(self, ctx: CalculationContext) -> Dict[AnyStr, Portfolio]:
+        """
+        Gets the factor index compositions for each factor.
+        """
+        params = RiskApi._create_get_params(ctx)
+        raw_json = self._call_api('/market/factor/indexcomps', params)
+        factors = {factor: RiskApi._to_portfolio(indexcomps) for (factor, indexcomps) in raw_json['factors'].items()}
+        return factors
+
+    @staticmethod
+    def _asset_matrix_to_dataframe(matrix_json: Any, asset_master: AssetMaster) -> pd.DataFrame:
+        def map_asset_id(asset_id: str):
+            return asset_master.get_symbol_by_id(UUID(asset_id))
+
+        df = pd.DataFrame.from_dict(matrix_json).dropna()
+        df = df.pivot(index='assetId1', columns='assetId2', values='value')
+        df.set_index(df.index.map(map_asset_id), inplace=True)
+        df.columns = df.columns.map(map_asset_id)
+
+        return df
+
+    @staticmethod
+    def _factor_matrix_to_dataframe(matrix_json: Any) -> pd.DataFrame:
+        df = pd.DataFrame.from_dict(matrix_json).dropna()
+        df = df.pivot(index='factor1', columns='factor2', values='value')
+        return df
+
+    @staticmethod
+    def _to_portfolio(indexcomps: Any) -> Portfolio:
+        positions = {UUID(entry['assetId']): entry['weight'] for entry in indexcomps if entry['weight'] != 0}
+        return Portfolio(positions)
+
+    @staticmethod
+    def _create_get_params(ctx: CalculationContext) -> Dict[AnyStr, Any]:
+        return {
+            'as_of_date': ctx.as_of_date.strftime(STD_DATE_FMT),
+            'model_config_id': ctx.model_config_id
+        }
+
+
+class ValuationApi(SerenityApi):
+    """
+    The valuation API group covers basic tools for NAV and other portfolio valuation calcs.
+    """
+    def __init__(self, client: SerenityClient):
+        super().__init__(client, 'valuation')
+
+    def compute_portfolio_value(self, ctx: PricingContext, portfolio: Portfolio):
+        request = {
+            'portfolio': {'assetPositions': portfolio.to_asset_positions()},
+            'pricing_context': {
+                **self._create_std_params(ctx.as_of_date),
+                'portfolio': {'assetPositions': portfolio.to_asset_positions()},
+                'markTime': ctx.mark_time.value,
+                'baseCurrencyId': str(ctx.base_currency_id),
+                'cashTreatment': ctx.cash_treatment.value
+            }
+        }
+        raw_json = self._call_api('/portfolio/compute', {}, request)
+        return ValuationResult.parse(raw_json)
 
 
 class ModelApi(SerenityApi):
@@ -455,6 +615,7 @@ class SerenityApiProvider:
     def __init__(self, client: SerenityClient):
         self.refdata_api = RefdataApi(client)
         self.risk_api = RiskApi(client)
+        self.valuation_api = ValuationApi(client)
         self.model_api = ModelApi(client)
 
     def refdata(self):
@@ -462,6 +623,9 @@ class SerenityApiProvider:
 
     def risk(self):
         return self.risk_api
+
+    def valuation(self):
+        return self.valuation_api
 
     def model(self):
         return self.model_api
