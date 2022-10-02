@@ -6,7 +6,7 @@ import requests
 from abc import ABC
 from bidict import bidict
 from datetime import date
-from enum import Enum, auto
+from enum import Enum
 from typing import Any, AnyStr, Dict, List
 from uuid import UUID
 
@@ -48,16 +48,6 @@ class CallType(Enum):
     PUT = 'PUT'
 
 
-class CallingConvention(Enum):
-    """
-    Original API mixed parameters in the POST body and as request parameters;
-    going forward everything is in a single JSON object passed in the body.
-    """
-
-    MIXED = auto()
-    BODY_ONLY = auto()
-
-
 class UnknownOperationError(Exception):
     """
     Error raised if there is a request for an API operation that is not known at all. Used
@@ -88,11 +78,11 @@ class APIPathMapper:
         # every path in this list
         self.env = env
 
-        # to allow smooth transition from old to new, we have a set of
-        # aliases that work in both directions: if an old path is
-        # used and we are running against DEV, it translates to the new;
-        # if a new path is used and we're running against PRODUCTION, it
-        # translates to the old
+        # now that the 20221001-Prod release is out, all three environments
+        # have the same API paths, but we still have some client code out
+        # there potentially using the old convention, so we are going to
+        # set up an inverse mapping until everyone migrates that will translate
+        # old API paths to new API paths
         self.path_aliases = bidict({
             # re-map Risk API
             '/risk/market/factor/asset_covariance': '/risk/asset/covariance',
@@ -110,8 +100,7 @@ class APIPathMapper:
         self.env_override_map = {
             Environment.DEV: {'aliases': self.path_aliases.inverse, 'unsupported': {}},
             Environment.TEST: {'aliases': self.path_aliases.inverse, 'unsupported': {}},
-            Environment.PRODUCTION: {'aliases': self.path_aliases,
-                                     'unsupported': {'/valuation/portfolio/compute', '/risk/market/factor/indexcomps'}}
+            Environment.PRODUCTION: {'aliases': self.path_aliases.inverse, 'unsupported': {}}
         }
 
         # next we have the path configurations, which are always based on the latest path;
@@ -146,26 +135,12 @@ class APIPathMapper:
             '/valuation/portfolio/compute': {'call_type': CallType.POST},
         }
 
-        # finally, how we do POST currently can also vary by environment
-        self.calling_conventions = {
-            Environment.DEV: CallingConvention.BODY_ONLY,
-            Environment.TEST: CallingConvention.BODY_ONLY,
-            Environment.PRODUCTION: CallingConvention.MIXED
-        }
-
     def get_call_type(self, latest_path: str) -> CallType:
         """
         For the given path (which may be a legacy path) get whether it is GET, POST, etc..
         """
         call_type = self._get_path_config(latest_path)['call_type']
         return call_type
-
-    def get_default_calling_convention(self) -> CallingConvention:
-        """
-        Looks up the calling convention to use for all POST calls; at this time we
-        are not going to get cute and allow per-path calling convention overrides.
-        """
-        return self.calling_conventions[self.env]
 
     def get_api_path(self, input_path: str):
         """
@@ -229,17 +204,16 @@ class SerenityClient:
 
         call_type = self.api_mapper.get_call_type(full_api_path)
         if call_type == CallType.POST:
-            call_convention = self.api_mapper.get_default_calling_convention()
-            if call_convention == CallingConvention.BODY_ONLY:
-                # this is a hack required until the transition on 1 October 2022;
-                # in MIXED mode only the portfolio parameter for a POST is in the
-                # body; in BODY_ONLY they are a single JSON object
-                body_json_new = {}
-                for key, value in params.items():
-                    body_json_new[humps.camelize(key)] = value
-                body_json_new['portfolio'] = body_json
-                body_json = body_json_new
-                params = {}
+            # this is a hack to help anyone with an "old-style" notebook
+            # who is setting portfolio in the body and as_of_date and other
+            # secondary parameters in request parameters: with this latest
+            # version of the backend they get merged into a single JSON input
+            body_json_new = {}
+            for key, value in params.items():
+                body_json_new[humps.camelize(key)] = value
+            body_json_new['portfolio'] = body_json
+            body_json = body_json_new
+            params = {}
 
             response_json = requests.post(api_base_url, headers=self.http_headers,
                                           params=params, json=body_json).json()
@@ -391,12 +365,11 @@ class RiskApi(SerenityApi):
         Note that sector_taxonomy support will be dropped with the next release, once the refdata endpoint
         for looking up sector_taxonomy_id is available.
         """
-        backcompat_mode = (self.client.env == Environment.PRODUCTION)
         params = {'as_of_date': ctx.as_of_date,
                   'model_config_id': str(ctx.model_config_id)}
         body_json = {'assetPositions': portfolio.to_asset_positions()}
         risk_attribution_json = self._call_api('/market/factor/attribution', params, body_json)
-        result = RiskAttributionResult(risk_attribution_json, backcompat_mode=backcompat_mode)
+        result = RiskAttributionResult(risk_attribution_json)
         return result
 
     def compute_var(self, ctx: CalculationContext,
