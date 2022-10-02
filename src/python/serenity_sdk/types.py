@@ -187,16 +187,9 @@ class RiskAttributionResult:
     """
     Result class that helps users interpret the fairly complex structured output from
     risk attribution, specifically helping break down the various pivots by asset, sector,
-    etc.. IMPORTANT: there will be a breaking change in the next release which will
-    change how we represent sector hierarchies on output. If you switch to using this object
-    for parsing results in your notebook, the corresponding SDK upgrade will take care of
-    this migration for you, so we strongly recommend replacing explicit parsing of the
-    sector output with use of this object prior to that release.
-
-    If you wish to handle newer-format data, pass backcompat_mode=False. This default will
-    change after the 1 October 2022 release to allow seamless transition.
+    etc.. We strongly recommend using this to ease migrations when output formats change.
     """
-    def __init__(self, raw_json: Any, backcompat_mode: bool = True):
+    def __init__(self, raw_json: Any):
         self.raw_json = raw_json
 
         self.portfolio_variance = None
@@ -218,10 +211,7 @@ class RiskAttributionResult:
 
         self.sector_factor_exposures = {}
 
-        if backcompat_mode:
-            self._parse_raw_json_backcompat()
-        else:
-            self._parse_raw_json()
+        self._parse_raw_json()
 
     def get_portfolio_volatility(self) -> Risk:
         """
@@ -423,25 +413,6 @@ class RiskAttributionResult:
                                          for factor_exposure in sector_exposure['factorExposure']}
                                         for sector_exposure in self.raw_json['sectorFactorExposure']}
 
-    def _parse_raw_json_backcompat(self):
-        """
-        Handles parsing output from Risk Attribution [V1] - Smith
-        """
-        # take care of common fields first
-        self._parse_raw_json_common()
-
-        # the sector breakdown changed between Smith and Ricardo -- this needs different handling
-        self.absolute_risk_by_asset, self.absolute_risk_by_sector, self.absolute_risk_by_sector_and_factor = \
-            self._parse_risk_contribution_backcompat('absoluteContributionRisk')
-        self.relative_risk_by_asset, self.relative_risk_by_sector, self.relative_risk_by_sector_and_factor = \
-            self._parse_risk_contribution_backcompat('relativeContributionRisk')
-
-        # factor exposure breakdown by sector in Smith only supports the sector and parent tuple
-        self.sector_factor_exposures = {SectorPath([sector_exposure['parentSector'], sector_exposure['sector']]):
-                                        {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
-                                         for factor_exposure in sector_exposure['factorRisk']}
-                                        for sector_exposure in self.raw_json['sectorFactorExposure']}
-
     def _parse_raw_json_common(self):
         """
         Handles parsing elements unchanged between Smith and Ricardo.
@@ -469,18 +440,6 @@ class RiskAttributionResult:
         risk_by_sector = {SectorPath(risk_obj['sectorLevels']): self._parse_risk_object(risk_obj)
                           for risk_obj in contrib_obj['bySector']}
         risk_by_sector_and_factor = {}  # will be supported in Ricardo
-        return (risk_by_asset, risk_by_sector, risk_by_sector_and_factor)
-
-    def _parse_risk_contribution_backcompat(self, risk_measure: str) -> Tuple:
-        """
-        Handle the Smith-style sector paths, which are parent sector and sector only.
-        """
-        contrib_obj = self.raw_json[risk_measure]
-        risk_by_asset = {UUID(risk_obj['assetId']): self._parse_risk_object(risk_obj)
-                         for risk_obj in contrib_obj['byAsset']}
-        risk_by_sector = {SectorPath([risk_obj['parentSector'], risk_obj['sector']]): self._parse_risk_object(risk_obj)
-                          for risk_obj in contrib_obj['bySector']}
-        risk_by_sector_and_factor = {}  # not supported in Smith
         return (risk_by_asset, risk_by_sector, risk_by_sector_and_factor)
 
     def _parse_risk_object(self, obj: Any) -> Risk:
