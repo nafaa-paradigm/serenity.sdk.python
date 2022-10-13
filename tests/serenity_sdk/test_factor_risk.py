@@ -19,6 +19,17 @@ def test_parse_risk_attrib_v2():
     assert math.isclose(result.get_portfolio_volatility().total_risk, 1.076, abs_tol=0.001)
     assert math.isclose(result.get_portfolio_variance().total_risk, 1.157, abs_tol=0.001)
 
+    # test out total risk DataFrame generation
+    total_risk_df = result.to_total_risk_data_frame()
+    assert math.isclose(total_risk_df.loc[['volatility']].factorRisk, 1.015, abs_tol=0.001)
+    assert math.isclose(total_risk_df.loc[['variance']].factorRisk, 1.030, abs_tol=0.001)
+
+    assert math.isclose(total_risk_df.loc[['volatility']].specificRisk, 0.356, abs_tol=0.001)
+    assert math.isclose(total_risk_df.loc[['variance']].specificRisk, 0.127, abs_tol=0.001)
+
+    assert math.isclose(total_risk_df.loc[['volatility']].totalRisk, 1.076, abs_tol=0.001)
+    assert math.isclose(total_risk_df.loc[['variance']].totalRisk, 1.157, abs_tol=0.001)
+
     # test out DataFrame generation (needs improvement, asserts are too weak)
     assert len(result.get_absolute_risk_by_asset()) == 7
     assert len(result.get_absolute_risk_by_sector()) == 10

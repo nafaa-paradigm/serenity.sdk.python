@@ -313,6 +313,33 @@ class RiskAttributionResult:
         """
         return self.sector_factor_exposures
 
+    def to_total_risk_data_frame(self) -> pd.DataFrame:
+        """
+        Summarizes the portfolio's factor, specific and total risk in both volatility and variance.
+
+        :return: a DataFrame with factorRisk, specificRisk and totalRisk columns corresponding to
+            the portion of the risk explained by the model, the portfion of the risk that
+            is idiosyncratic to the assets in that portfolio, and the overall risk. Index
+            corresponds to both volatility and variance.
+        """
+        rows = [
+            {
+                'measure': 'volatility',
+                'factorRisk': self.portfolio_volatility.factor_risk,
+                'specificRisk': self.portfolio_volatility.specific_risk,
+                'totalRisk': self.portfolio_volatility.total_risk
+            },
+            {
+                'measure': 'variance',
+                'factorRisk': self.portfolio_variance.factor_risk,
+                'specificRisk': self.portfolio_variance.specific_risk,
+                'totalRisk': self.portfolio_variance.total_risk
+            }
+        ]
+        df = pd.DataFrame(rows)
+        df.set_index('measure', inplace=True)
+        return df
+
     def to_asset_risk_data_frame(self, asset_master: AssetMaster) -> pd.DataFrame:
         """
         Creates a DataFrame with a flattened version of all the by-asset risk data:
