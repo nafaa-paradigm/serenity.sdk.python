@@ -196,7 +196,7 @@ class SerenityClient:
         self.version = SERENITY_API_VERSION
         self.env = env
         self.region = region
-        self.http_headers = create_auth_headers(credential, scopes, user_app_id=config_json['userApplicationId'])
+        self.auth_headers = create_auth_headers(credential, scopes, user_app_id=config_json['userApplicationId'])
         self.api_mapper = APIPathMapper(env)
 
     def call_api(self, api_group: str, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
@@ -207,6 +207,11 @@ class SerenityClient:
         """
         host = SerenityClient._get_url('https://serenity-rest', self.env, self.region)
 
+        # first make sure we don't have a stale Bearer token, and get the auth HTTP headers
+        self.auth_headers.ensure_not_expired()
+        http_headers = self.auth_headers.get_http_headers()
+
+        # execute the REST API call after constructing the full URL
         full_api_path = f'/{api_group}{api_path}'
         full_api_path = self.api_mapper.get_api_path(full_api_path)
         api_base_url = f'{host}/{self.version}{full_api_path}'
@@ -225,10 +230,10 @@ class SerenityClient:
                 body_json = body_json_new
                 params = {}
 
-            response_json = requests.post(api_base_url, headers=self.http_headers,
+            response_json = requests.post(api_base_url, headers=http_headers,
                                           params=params, json=body_json).json()
         elif call_type == CallType.GET:
-            response_json = requests.get(api_base_url, headers=self.http_headers,
+            response_json = requests.get(api_base_url, headers=http_headers,
                                          params=params).json()
         else:
             raise ValueError(f'{full_api_path} call type is {call_type}, which is not yet supported')
