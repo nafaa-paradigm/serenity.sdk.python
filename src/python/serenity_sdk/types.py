@@ -417,7 +417,7 @@ class RiskAttributionResult:
         """
         Handles parsing elements unchanged between Smith and Ricardo.
         """
-        self.portfolio_variance = self._parse_total_risk('volatility')
+        self.portfolio_volatility = self._parse_total_risk('volatility')
         self.portfolio_variance = self._parse_total_risk('variance')
 
         self.portfolio_risk_by_factor = {risk_obj['factor']: self._parse_factor_risk_object(risk_obj)
