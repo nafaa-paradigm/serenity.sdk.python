@@ -7,8 +7,8 @@ from ipywidgets import (Button, Combobox, Dropdown, HBox,
                         RadioButtons, VBox)
 from IPython.display import display
 
-from serenity_sdk.client import load_local_config
-from serenity_sdk.client import Environment, Region, SerenityApiProvider, SerenityClient
+from serenity_sdk.client import SerenityApiProvider, SerenityClient
+from serenity_sdk.config import Environment, Region, load_local_config
 
 api_config = Combobox(placeholder='Choose API config',
                       options=['athansor', 'pgi'],

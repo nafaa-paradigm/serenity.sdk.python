@@ -1,6 +1,4 @@
 import humps
-import json
-import os.path
 import requests
 
 import pandas as pd
@@ -13,29 +11,12 @@ from typing import Any, AnyStr, Dict, List
 from uuid import UUID
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
+from serenity_sdk.config import ConnectionConfig, Environment, Region
 from serenity_sdk.types import (STD_DATE_FMT, AssetMaster, CalculationContext, FactorModelOutputs, ModelMetadata,
                                 Portfolio, PricingContext, RiskAttributionResult, SectorTaxonomy,
                                 ValuationResult, VaRBacktestResult, VaRResult)
 
 SERENITY_API_VERSION = 'v1'
-
-
-class Environment(Enum):
-    """
-    The operational environment (e.g. test vs. production) to use for connection purposes.
-    """
-    DEV = 'dev'
-    TEST = 'test'
-    PRODUCTION = ''
-
-
-class Region(Enum):
-    """
-    The regional installation of Serenity to use for connection purposes.
-    """
-    GLOBAL = ''
-    EASTUS = 'eastus'
-    EASTUS_2 = 'eastus2'
 
 
 class CallType(Enum):
@@ -187,16 +168,17 @@ class APIPathMapper:
 
 
 class SerenityClient:
-    def __init__(self, config_json: Any, env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL):
-        scopes = SerenityClient._get_scopes(env, region)
-        credential = get_credential_user_app(client_id=config_json['clientId'],
-                                             client_secret=config_json['userApplicationSecret'],
-                                             tenant_id=config_json['tenantId'])
+    def __init__(self, config: ConnectionConfig,
+                 env: Environment = Environment.PRODUCTION,
+                 region: Region = Region.GLOBAL):
+        scopes = config.get_scopes(env, region)
+        credential = get_credential_user_app(config)
 
         self.version = SERENITY_API_VERSION
+        self.config = config
         self.env = env
         self.region = region
-        self.auth_headers = create_auth_headers(credential, scopes, user_app_id=config_json['userApplicationId'])
+        self.auth_headers = create_auth_headers(credential, scopes, user_app_id=config.user_application_id)
         self.api_mapper = APIPathMapper(env)
 
     def call_api(self, api_group: str, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
@@ -205,7 +187,7 @@ class SerenityClient:
         arguments you can pass a dictionary of request parameters or a JSON object, or both.
         In future versions of the SDK we will offer higher-level calls to ease usage.
         """
-        host = SerenityClient._get_url('https://serenity-rest', self.env, self.region)
+        host = self.config.get_url(self.env, self.region)
 
         # first make sure we don't have a stale Bearer token, and get the auth HTTP headers
         self.auth_headers.ensure_not_expired()
@@ -238,32 +220,16 @@ class SerenityClient:
         else:
             raise ValueError(f'{full_api_path} call type is {call_type}, which is not yet supported')
 
+        return SerenityClient._check_response(response_json)
+
+    @staticmethod
+    def _check_response(response_json: Any):
         if 'detail' in response_json:
             raise SerenityError(response_json['detail'])
-
-        return response_json
-
-    @staticmethod
-    def _get_scopes(env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL) -> List[str]:
-        """
-        Helper function that returns the login scopes required to access the API given an environment
-        and a region. In general you do not need to call this directly.
-        """
-        return [
-            f"{SerenityClient._get_url('https://serenity-api', env, region)}/.default"
-        ]
-
-    @staticmethod
-    def _get_url(host: str, env: Environment, region: Region):
-        """
-        Helper function that returns the url based on the Environment and Region provided.
-        """
-        if env.value:
-            host = f'{host}-{env.value}'
-        if region.value:
-            host = f'{host}-{region.value}'
-        host = f'{host}.cloudwall.network'
-        return host
+        elif 'message' in response_json:
+            raise SerenityError(response_json['message'])
+        else:
+            return response_json
 
 
 class SerenityApi(ABC):
@@ -634,29 +600,3 @@ class SerenityApiProvider:
 
     def model(self):
         return self.model_api
-
-
-def load_local_config(config_id: str, config_dir: str = None) -> Any:
-    """
-    Helper function that lets you read a JSON config file with client ID and client secret from
-    $HOME/.serenity/${config_id}.json on your local machine.
-    """
-
-    if not config_dir:
-        home_dir = os.path.expanduser('~')
-        config_dir = os.path.join(home_dir, '.serenity')
-    config_path = os.path.join(config_dir, f'{config_id}.json')
-
-    # load and parse
-    config_file = open(config_path)
-    config = json.load(config_file)
-
-    # basic validation
-    required_keys = ['schemaVersion', 'tenantId', 'clientId', 'userApplicationId', 'userApplicationSecret']
-    if not all(key in config for key in required_keys):
-        raise ValueError(f'{config_path} invalid. Required keys: {required_keys}; got: {list(config.keys())}')
-    schema_version = config['schemaVersion']
-    if schema_version != 1:
-        raise ValueError(f'At this time only schemaVersion 1 supported; {config_path} is version {schema_version}')
-
-    return config

@@ -1,0 +1,9 @@
+{
+    "schemaVersion": 2,
+    "tenantId": "athansor.cloudwall.network",
+    "clientId": "...",
+    "userApplicationId": "...",
+    "userApplicationSecret": "...",
+    "url": "https://serenity-rest.athansor.dev.cloudwall.network",
+    "scope": "https://serenity-api-dev.athansor.cloudwall.network/.default"
+  }

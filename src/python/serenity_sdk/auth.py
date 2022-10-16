@@ -3,6 +3,9 @@ from typing import AnyStr, Dict, List
 
 from azure.identity import ClientSecretCredential
 
+from serenity_sdk.config import ConnectionConfig
+
+
 SERENITY_CLIENT_ID_HEADER = 'X-Serenity-Client-ID'
 
 
@@ -45,13 +48,17 @@ class AuthHeaders:
                              SERENITY_CLIENT_ID_HEADER: self.user_app_id}
 
 
-def get_credential_user_app(client_id: str, client_secret: str, tenant_id: str) -> object:
+def get_credential_user_app(config: ConnectionConfig) -> object:
     """
     Standard mechanism to acquire a credential for accessing the Serenity API. You
     can create one or more user applications using the Serenity Admin screen, and
     as part of setup you will be given the application's client ID and secret.
+
+    :param config: Serenity API Management API configuration from `load_local_config()`
     """
-    return ClientSecretCredential(tenant_id, client_id, client_secret)
+    return ClientSecretCredential(config.tenant_id,
+                                  config.client_id,
+                                  config.user_application_secret)
 
 
 def create_auth_headers(credential: object, scopes: List[str], user_app_id: str) -> Dict[str, str]:

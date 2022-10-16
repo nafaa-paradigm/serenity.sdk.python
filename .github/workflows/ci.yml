@@ -33,7 +33,7 @@ jobs:
       - name: Lint
         run: |
           # do a basic linting of unit tests, and stricter (with complexity check) on source
-          flake8 $SRC_DIR --count --show-source --statistics --radon-max-cc 6
+          flake8 $SRC_DIR --count --show-source --statistics --radon-max-cc 10
           flake8 tests
       - name: Analyze Complexity
         run: radon cc $SRC_DIR
