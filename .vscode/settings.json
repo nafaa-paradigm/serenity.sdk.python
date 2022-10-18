@@ -1465,6 +1465,6 @@
             "blockStrings": []
         }
     },
-    "autoDocstring.docstringFormat": "sphinx",
+    "autoDocstring.docstringFormat": "sphinx-notypes",
     "autoDocstring.startOnNewLine": true
 }
