@@ -1,6 +1,6 @@
 import os.path
 
-from serenity_sdk.config import ConnectionConfig, Environment, Region, load_local_config
+from serenity_sdk.config import Environment, Region, load_local_config
 
 
 def test_load_local_config_v1():
@@ -16,6 +16,8 @@ def test_load_local_config_v1():
     assert config.scope is None
     assert config.get_scopes()[0] == 'https://serenity-api.cloudwall.network/.default'
     assert config.get_url() == 'https://serenity-rest.cloudwall.network'
+    assert config.env == Environment.PRODUCTION
+    assert config.region == Region.GLOBAL
 
 
 def test_load_local_config_v2_dev():
@@ -31,6 +33,8 @@ def test_load_local_config_v2_dev():
     assert config.scope == 'https://serenity-api-dev.athansor.cloudwall.network/.default'
     assert config.get_scopes()[0] == config.scope
     assert config.get_url() == config.url
+    assert config.env == Environment.DEV
+    assert config.region == Region.EASTUS
 
 
 def test_load_local_config_v2_prod():
@@ -46,17 +50,5 @@ def test_load_local_config_v2_prod():
     assert config.scope == 'https://serenity-api-pgi.cloudwall.network/.default'
     assert config.get_scopes()[0] == config.scope
     assert config.get_url() == config.url
-
-
-def test_get_scopes_v1_default():
-    assert ConnectionConfig._get_scopes_v1()[0] == 'https://serenity-api.cloudwall.network/.default'
-
-
-def test_get_scopes_v1_global():
-    expected_scope = 'https://serenity-api-test.cloudwall.network/.default'
-    assert ConnectionConfig._get_scopes_v1(Environment.TEST)[0] == expected_scope
-
-
-def test_get_scopes_v1_no_defaults():
-    assert ConnectionConfig._get_scopes_v1(Environment.DEV, Region.EASTUS_2)[0] == \
-        'https://serenity-api-dev-eastus2.cloudwall.network/.default'
+    assert config.env == Environment.PRODUCTION
+    assert config.region == Region.GLOBAL

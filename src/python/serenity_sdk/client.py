@@ -11,10 +11,10 @@ from typing import Any, AnyStr, Dict, List
 from uuid import UUID
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
-from serenity_sdk.config import ConnectionConfig, Environment, Region
+from serenity_sdk.config import ConnectionConfig, Environment
 from serenity_sdk.types import (STD_DATE_FMT, AssetMaster, CalculationContext, FactorModelOutputs, ModelMetadata,
                                 Portfolio, PricingContext, RiskAttributionResult, SectorTaxonomy,
-                                ValuationResult, VaRBacktestResult, VaRResult)
+                                ValuationResult, VaRAnalysisResult, VaRBacktestResult)
 
 SERENITY_API_VERSION = 'v1'
 
@@ -168,18 +168,16 @@ class APIPathMapper:
 
 
 class SerenityClient:
-    def __init__(self, config: ConnectionConfig,
-                 env: Environment = Environment.PRODUCTION,
-                 region: Region = Region.GLOBAL):
-        scopes = config.get_scopes(env, region)
+    def __init__(self, config: ConnectionConfig):
+        scopes = config.get_scopes()
         credential = get_credential_user_app(config)
 
         self.version = SERENITY_API_VERSION
         self.config = config
-        self.env = env
-        self.region = region
+        self.env = config.env
+        self.region = config.region
         self.auth_headers = create_auth_headers(credential, scopes, user_app_id=config.user_application_id)
-        self.api_mapper = APIPathMapper(env)
+        self.api_mapper = APIPathMapper(self.env)
 
     def call_api(self, api_group: str, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
         """
@@ -187,7 +185,7 @@ class SerenityClient:
         arguments you can pass a dictionary of request parameters or a JSON object, or both.
         In future versions of the SDK we will offer higher-level calls to ease usage.
         """
-        host = self.config.get_url(self.env, self.region)
+        host = self.config.get_url()
 
         # first make sure we don't have a stale Bearer token, and get the auth HTTP headers
         self.auth_headers.ensure_not_expired()
@@ -243,6 +241,14 @@ class SerenityApi(ABC):
 
     def _call_api(self, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
         return self.client.call_api(self.api_group, api_path, params, body_json)
+
+    def _get_env(self) -> Environment:
+        """
+        Internal helper to get the current API environment (dev, test, production)
+
+        :return: the currently-connected environment
+        """
+        return self.client.env
 
     @staticmethod
     def _create_std_params(as_of_date: date) -> Dict[str, str]:
@@ -362,9 +368,9 @@ class RiskApi(SerenityApi):
     def compute_var(self, ctx: CalculationContext,
                     portfolio: Portfolio,
                     horizon_days: int = 1,
-                    lookback_period: int = 1,
+                    lookback_period: int = 365,
                     quantiles: List[float] = [95, 97.5, 99],
-                    var_model: str = 'VAR_PARAMETRIC_NORMAL') -> VaRResult:
+                    var_model: str = 'VAR_PARAMETRIC_NORMAL') -> VaRAnalysisResult:
         """
         Uses a chosen model to compute Value at Risk (VaR) for a portfolio. Note: this API
         currently ignores CalculationContext.model_config_id, so if you want to use a
@@ -374,20 +380,24 @@ class RiskApi(SerenityApi):
         request = {
             **self._create_std_params(ctx.as_of_date),
             'portfolio': {'assetPositions': portfolio.to_asset_positions()},
-            'modelId': var_model,
             'markTime': ctx.mark_time.value,
             'horizonDays': horizon_days,
             'lookbackPeriod': lookback_period,
-            'quantiles': quantiles
+            **self._create_var_model_params(ctx.model_config_id, var_model, lookback_period, None, quantiles)
         }
         raw_json = self._call_api('/var/compute', {}, request)
-        return VaRResult.parse(raw_json)
+        backcompat = self._get_env() == Environment.PRODUCTION
+        result_json = raw_json if backcompat else raw_json['result']
+        result = VaRAnalysisResult.parse(result_json, backcompat=backcompat)
+        result.warnings = [] if backcompat else raw_json.get('warnings', [])
+        return result
 
     def compute_var_backtest(self, ctx: CalculationContext,
                              portfolio: Portfolio,
                              start_date: date,
                              end_date: date,
-                             lookback_period: int = 1,
+                             lookback_period: int = 365,
+                             quantiles: List[float] = [95, 97.5, 99],
                              quantile: float = 99,
                              var_model: str = 'VAR_PARAMETRIC_NORMAL') -> VaRBacktestResult:
         """
@@ -404,13 +414,12 @@ class RiskApi(SerenityApi):
             'portfolio': {'assetPositions': portfolio.to_asset_positions()},
             'startDate': start_date.strftime(STD_DATE_FMT),
             'endDate': end_date.strftime(STD_DATE_FMT),
-            'modelId': var_model,
             'markTime': ctx.mark_time.value,
-            'lookbackPeriod': lookback_period,
-            'quantile': quantile
+            **self._create_var_model_params(ctx.model_config_id, var_model, lookback_period, quantile, quantiles)
         }
         raw_json = self._call_api('/var/backtest', {}, request)
-        return VaRBacktestResult.parse(raw_json)
+        return VaRBacktestResult.parse(raw_json, backcompat=(self._get_env() == Environment.PRODUCTION),
+                                       backcompat_quantile=quantile)
 
     def get_asset_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
         """
@@ -480,6 +489,41 @@ class RiskApi(SerenityApi):
         raw_json = self._call_api('/market/factor/indexcomps', params)
         factors = {factor: RiskApi._to_portfolio(indexcomps) for (factor, indexcomps) in raw_json['factors'].items()}
         return factors
+
+    def _create_var_model_params(self, model_config_id: UUID, model_id: str, lookback_period: int,
+                                 quantile: float, quantiles: List[float]) -> Dict[AnyStr, Any]:
+        """
+        VaR model parameter conventions changed between the Ricardo and Martineau releases. This method
+        takes care of rewriting both conventions to ensure backward compatiblity during the transition.
+
+        :param model_config_id: the UUID for the VaR model selected
+        :param model_id: the legacy enum value for the VaR model to use
+        :param lookback_period: the lookback period, which in Ricardo is in years, default 1, and in Martineau
+            is in days, default 365
+        :param quantile: the single quantile parameter for backtest VaR, else None for compute VaR
+        :param quantiles: the list of quantiles for compute VaR or, in dev & test only, for backtest VaR as well
+        :return: a dictionary with the appropriate config keys based on environment for backward compatibility
+        """
+        if self._get_env() == Environment.PRODUCTION:
+            params = {
+                'modelId': model_id,
+                'lookbackPeriod': (1 if lookback_period == 365 else lookback_period)
+            }
+            if quantile is not None:
+                # in production backtest VaR takes a single float quantile
+                params['quantile'] = quantile
+            else:
+                # in production compute VaR takes an array of quantiles
+                params['quantiles'] = quantiles
+        else:
+            params = {
+                'modelConfigId': str(model_config_id),
+                'lookbackPeriod': lookback_period,
+
+                # in dev and test, both backtest and compute VaR take an array of quantiles
+                'quantiles': quantiles
+            }
+        return params
 
     @staticmethod
     def _asset_matrix_to_dataframe(matrix_json: Any, asset_master: AssetMaster) -> pd.DataFrame:

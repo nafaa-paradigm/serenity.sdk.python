@@ -51,9 +51,17 @@ class ConnectionConfig:
         if schema_version == 1:
             self.url = None
             self.scope = None
+
+            # during transition only PRODUCTION still supports V1
+            self.env = Environment.PRODUCTION
+            self.region = Region.GLOBAL
         else:
             self.url = config['url']
             self.scope = config['scope']
+            self.env = Environment[config['environment']]
+
+            # with V2 we don't actually need Region, so default it for now
+            self.region = Region.GLOBAL if self.env == Environment.PRODUCTION else Region.EASTUS
 
     @staticmethod
     def _validate_config_json(config: Any, config_path: str) -> int:
@@ -73,37 +81,35 @@ class ConnectionConfig:
 
         return schema_version
 
-    def get_scopes(self, env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL) -> List[str]:
+    def get_scopes(self) -> List[str]:
         if self.schema_version == 1:
-            return ConnectionConfig._get_scopes_v1(env, region)
+            return self._get_scopes_v1()
         else:
             return [self.scope]
 
-    def get_url(self, env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL) -> str:
+    def get_url(self) -> str:
         if self.schema_version == 1:
-            return ConnectionConfig._get_url_v1('https://serenity-rest', env, region)
+            return self._get_url_v1('https://serenity-rest')
         else:
             return self.url
 
-    @staticmethod
-    def _get_scopes_v1(env: Environment = Environment.PRODUCTION, region: Region = Region.GLOBAL) -> List[str]:
+    def _get_scopes_v1(self) -> List[str]:
         """
         Helper function that returns the login scopes required to access the API given an environment
         and a region. In general you do not need to call this directly.
         """
         return [
-            f"{ConnectionConfig._get_url_v1('https://serenity-api', env, region)}/.default"
+            f"{self._get_url_v1('https://serenity-api')}/.default"
         ]
 
-    @staticmethod
-    def _get_url_v1(host: str, env: Environment, region: Region) -> str:
+    def _get_url_v1(self, host: str) -> str:
         """
         Helper function that returns the url based on the Environment and Region provided.
         """
-        if env.value:
-            host = f'{host}-{env.value}'
-        if region.value:
-            host = f'{host}-{region.value}'
+        if self.env.value:
+            host = f'{host}-{self.env.value}'
+        if self.region.value:
+            host = f'{host}-{self.region.value}'
         host = f'{host}.cloudwall.network'
         return host
 

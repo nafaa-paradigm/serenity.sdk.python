@@ -5,5 +5,6 @@
   "userApplicationId": "...",
   "userApplicationSecret": "...",
   "url": "https://serenity-rest.pgi.cloudwall.network",
-  "scope": "https://serenity-api-pgi.cloudwall.network/.default"
+  "scope": "https://serenity-api-pgi.cloudwall.network/.default",
+  "environment": "PRODUCTION"
 }

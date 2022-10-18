@@ -567,7 +567,7 @@ class Quantile:
 
 
 @dataclass
-class Quantile:
+class VaRQuantile:
     """
     Helper class that repersents a single VaR quantile, e.g. 90th percentile VaR.
     """
@@ -580,7 +580,7 @@ class Quantile:
         quantile = raw_json['quantile']
         var_absolute = raw_json['varAbsolute']
         var_relative = raw_json['varRelative']
-        return Quantile(quantile, var_absolute, var_relative)
+        return VaRQuantile(quantile, var_absolute, var_relative)
 
 
 class VaRBreach:
@@ -596,42 +596,50 @@ class VaRBreach:
     breach_date: date
     portfolio_loss_absolute: float
     portfolio_loss_relative: float
-    var_level_absolute: float
-    var_level_relative: float
+    quantiles: List[VaRQuantile]
 
     @staticmethod
-    def parse(raw_json: Any) -> VaRBreach:
+    def parse(raw_json: Any, backcompat: bool = True, backcompat_quantile: float = None) -> VaRBreach:
         breach_date = datetime.strptime(raw_json['breachDate'], STD_DATE_FMT)
         portfolio_loss_absolute = raw_json['portfolioLossAbsolute']
         portfolio_loss_relative = raw_json['portfolioLossRelative']
-        var_level_absolute = raw_json['varLevelAbsolute']
-        var_level_relative = raw_json['varLevelRelative']
-        return VaRBreach(breach_date, portfolio_loss_absolute, portfolio_loss_relative,
-                         var_level_absolute, var_level_relative)
+        if backcompat:
+            var_absolute = raw_json['varLevelAbsolute']
+            var_relative = raw_json['varLevelRelative']
+            quantiles = [VaRQuantile(99, var_absolute, var_relative)]
+        else:
+            quantiles = [VaRQuantile.parse(quantile) for quantile in raw_json['quantiles']]
+        return VaRBreach(breach_date, portfolio_loss_absolute, portfolio_loss_relative, quantiles)
 
 
-class VaRResult:
+class VaRAnalysisResult:
     # forward declaration
     pass
 
 
 @dataclass
-class VaRResult:
+class VaRAnalysisResult:
     """
     Result class that helps users interpret the output of the VaR model, e.g. processing quantiles.
     """
     run_date: date
     baseline: float
-    quantiles: List[Quantile]
+    quantiles: List[VaRQuantile]
     excluded_assets: List[UUID]
+    warnings: List[str]
 
     @staticmethod
-    def parse(raw_json: Any) -> VaRResult:
+    def parse(raw_json: Any, backcompat: bool = True) -> VaRAnalysisResult:
         run_date = datetime.strptime(raw_json['runDate'], STD_DATE_FMT)
         baseline = raw_json['baseline']
-        quantiles = [Quantile.parse(quantile) for quantile in raw_json['quantiles']]
+        quantiles = [VaRQuantile.parse(quantile) for quantile in raw_json['quantiles']]
         excluded_assets = [UUID(asset_id) for asset_id in raw_json['excludedAssetIds']]
-        return VaRResult(run_date, baseline, quantiles, excluded_assets)
+        if backcompat:
+            warnings = []
+        else:
+            warnings = raw_json.get('warnings', [])
+
+        return VaRAnalysisResult(run_date, baseline, quantiles, excluded_assets, warnings)
 
 
 class VaRBacktestResult:
@@ -644,14 +652,19 @@ class VaRBacktestResult:
     """
     Result class that helps users interpret the output of the VaR model backtester, e.g. processing breaches.
     """
-    results: List[VaRResult]
+    results: List[VaRAnalysisResult]
     breaches: List[VaRBreach]
+    warnings: List[str]
 
     @staticmethod
-    def parse(raw_json: Any) -> VaRBacktestResult:
-        results = [VaRResult.parse(result) for result in raw_json['results']]
-        breaches = [VaRBreach.parse(breach) for breach in raw_json['breaches']]
-        return VaRBacktestResult(results, breaches)
+    def parse(raw_json: Any, backcompat: bool = True, backcompat_quantile: float = None) -> VaRBacktestResult:
+        results = [VaRAnalysisResult.parse(result, backcompat) for result in raw_json['results']]
+        breaches = [VaRBreach.parse(breach, backcompat, backcompat_quantile) for breach in raw_json['breaches']]
+        if backcompat:
+            warnings = []
+        else:
+            warnings = raw_json['warnings']
+        return VaRBacktestResult(results, breaches, warnings)
 
 
 class PortfolioValue:
