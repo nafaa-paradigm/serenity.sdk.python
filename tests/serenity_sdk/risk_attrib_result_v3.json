@@ -1,0 +1,696 @@
+{
+    "requestId": "fc208a58-61db-4e37-b666-56e653140bb7",
+    "asOfDate": "2021-07-01",
+    "totalRisk": {
+        "volatility": {
+            "factorRisk": 1.0151932886999566,
+            "specificRisk": 0.35603234243241016,
+            "totalRisk": 1.0758143158925442
+        },
+        "variance": {
+            "factorRisk": 1.0306174134214334,
+            "specificRisk": 0.12675902885790896,
+            "totalRisk": 1.1573764422793429
+        }
+    },
+    "absoluteContributionRisk": {
+        "bySector": [
+            {
+                "factorRisk": 0.09533026059573779,
+                "specificRisk": 0.012352779724778004,
+                "totalRisk": 0.09404655466388225,
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Multi-Chain / Parachain",
+                    "Multi-Chain / Parachain"
+                ]
+            },
+            {
+                "factorRisk": 0.16605588663691506,
+                "specificRisk": 0.11777020571402069,
+                "totalRisk": 0.19567393811577874,
+                "sectorLevels": [
+                    "Currency",
+                    "BaaS",
+                    "Payments"
+                ]
+            },
+            {
+                "factorRisk": 0.525294137944023,
+                "specificRisk": 0.13405446537537252,
+                "totalRisk": 0.5400586329559053,
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            },
+            {
+                "factorRisk": 0.22851300352328072,
+                "specificRisk": 0.09185489161823887,
+                "totalRisk": 0.24603519015697767,
+                "sectorLevels": [
+                    "Currency",
+                    "Transparent",
+                    "Transparent DeFi Currency"
+                ]
+            }
+        ],
+        "byAsset": [
+            {
+                "factorRisk": 0.16605588663691506,
+                "specificRisk": 0.11777020571402069,
+                "totalRisk": 0.19567393811577874,
+                "assetId": "192f10b4-f0a7-4e7a-a66c-204d90acd1e2",
+                "sectorLevels": [
+                    "Currency",
+                    "BaaS",
+                    "Payments"
+                ]
+            },
+            {
+                "factorRisk": 0.22851300352328072,
+                "specificRisk": 0.09185489161823887,
+                "totalRisk": 0.24603519015697767,
+                "assetId": "78e2e8e2-419d-4515-9b6a-3d5ff1448e89",
+                "sectorLevels": [
+                    "Currency",
+                    "Transparent",
+                    "Transparent DeFi Currency"
+                ]
+            },
+            {
+                "factorRisk": 0.03315311392572754,
+                "specificRisk": 0.006673269320136319,
+                "totalRisk": 0.033493436490236485,
+                "assetId": "9111a3cf-51de-4c9b-ad18-f140353374cb",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            },
+            {
+                "factorRisk": 0.19965131348323492,
+                "specificRisk": 0.049422190362721746,
+                "totalRisk": 0.20475705563421218,
+                "assetId": "95b89dfd-c5f6-41d6-83c6-a9d97e0ac361",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            },
+            {
+                "factorRisk": 0.14750497936626375,
+                "specificRisk": 0.03216523468130585,
+                "totalRisk": 0.1498380590122497,
+                "assetId": "d380f43b-0ef2-4be8-863b-b21cfad8fd58",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            },
+            {
+                "factorRisk": 0.09533026059573779,
+                "specificRisk": 0.012352779724778004,
+                "totalRisk": 0.09404655466388225,
+                "assetId": "d88f8c45-8022-458f-9655-b5a515dee10e",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Multi-Chain / Parachain",
+                    "Multi-Chain / Parachain"
+                ]
+            },
+            {
+                "factorRisk": 0.1449847311687969,
+                "specificRisk": 0.04579377101120859,
+                "totalRisk": 0.1519700818192069,
+                "assetId": "faacc897-c757-4df3-8b8b-50bc8a8572dc",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            }
+        ]
+    },
+    "relativeContributionRisk": {
+        "bySector": [
+            {
+                "factorRisk": 0.08361898275397293,
+                "specificRisk": 0.003799964246985083,
+                "totalRisk": 0.08741894700095805,
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Multi-Chain / Parachain",
+                    "Multi-Chain / Parachain"
+                ]
+            },
+            {
+                "factorRisk": 0.14565599877851065,
+                "specificRisk": 0.03622849116103699,
+                "totalRisk": 0.18188448993954764,
+                "sectorLevels": [
+                    "Currency",
+                    "BaaS",
+                    "Payments"
+                ]
+            },
+            {
+                "factorRisk": 0.46076199925407746,
+                "specificRisk": 0.04123785794976359,
+                "totalRisk": 0.5019998572038413,
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            },
+            {
+                "factorRisk": 0.2004402881232246,
+                "specificRisk": 0.028256417732428256,
+                "totalRisk": 0.228696705855653,
+                "sectorLevels": [
+                    "Currency",
+                    "Transparent",
+                    "Transparent DeFi Currency"
+                ]
+            }
+        ],
+        "byAsset": [
+            {
+                "factorRisk": 0.14565599877851065,
+                "specificRisk": 0.03622849116103699,
+                "totalRisk": 0.18188448993954764,
+                "assetId": "192f10b4-f0a7-4e7a-a66c-204d90acd1e2",
+                "sectorLevels": [
+                    "Currency",
+                    "BaaS",
+                    "Payments"
+                ]
+            },
+            {
+                "factorRisk": 0.2004402881232246,
+                "specificRisk": 0.028256417732428256,
+                "totalRisk": 0.228696705855653,
+                "assetId": "78e2e8e2-419d-4515-9b6a-3d5ff1448e89",
+                "sectorLevels": [
+                    "Currency",
+                    "Transparent",
+                    "Transparent DeFi Currency"
+                ]
+            },
+            {
+                "factorRisk": 0.029080269415731122,
+                "specificRisk": 0.0020528322686881053,
+                "totalRisk": 0.031133101684419233,
+                "assetId": "9111a3cf-51de-4c9b-ad18-f140353374cb",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            },
+            {
+                "factorRisk": 0.17512424317981024,
+                "specificRisk": 0.015203262793501194,
+                "totalRisk": 0.1903275059733115,
+                "assetId": "95b89dfd-c5f6-41d6-83c6-a9d97e0ac361",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            },
+            {
+                "factorRisk": 0.12938406177297498,
+                "specificRisk": 0.009894675085938475,
+                "totalRisk": 0.1392787368589135,
+                "assetId": "d380f43b-0ef2-4be8-863b-b21cfad8fd58",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            },
+            {
+                "factorRisk": 0.08361898275397293,
+                "specificRisk": 0.003799964246985083,
+                "totalRisk": 0.08741894700095805,
+                "assetId": "d88f8c45-8022-458f-9655-b5a515dee10e",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Multi-Chain / Parachain",
+                    "Multi-Chain / Parachain"
+                ]
+            },
+            {
+                "factorRisk": 0.12717342488556116,
+                "specificRisk": 0.014087087801635822,
+                "totalRisk": 0.14126051268719703,
+                "assetId": "faacc897-c757-4df3-8b8b-50bc8a8572dc",
+                "sectorLevels": [
+                    "Smart Contract Platform",
+                    "Single Chain",
+                    "Single Chain"
+                ]
+            }
+        ]
+    },
+    "assetMarginalRisk": [
+        {
+            "factorRisk": 1.3131085026528602,
+            "specificRisk": 0.9312832059991462,
+            "totalRisk": 1.5473170936072034,
+            "assetId": "192f10b4-f0a7-4e7a-a66c-204d90acd1e2",
+            "sectorLevels": [
+                "Currency",
+                "BaaS",
+                "Payments"
+            ]
+        },
+        {
+            "factorRisk": 0.7137584224593087,
+            "specificRisk": 0.2869079725256227,
+            "totalRisk": 0.7684888233418604,
+            "assetId": "78e2e8e2-419d-4515-9b6a-3d5ff1448e89",
+            "sectorLevels": [
+                "Currency",
+                "Transparent",
+                "Transparent DeFi Currency"
+            ]
+        },
+        {
+            "factorRisk": 1.023313631541361,
+            "specificRisk": 0.20597906662827561,
+            "totalRisk": 1.0338181265388235,
+            "assetId": "9111a3cf-51de-4c9b-ad18-f140353374cb",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ]
+        },
+        {
+            "factorRisk": 0.9838648741753744,
+            "specificRisk": 0.2435483957222938,
+            "totalRisk": 1.0090255418980285,
+            "assetId": "95b89dfd-c5f6-41d6-83c6-a9d97e0ac361",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ]
+        },
+        {
+            "factorRisk": 1.2447659783994618,
+            "specificRisk": 0.2714361914461663,
+            "totalRisk": 1.2644543860769302,
+            "assetId": "d380f43b-0ef2-4be8-863b-b21cfad8fd58",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ]
+        },
+        {
+            "factorRisk": 1.320499561526503,
+            "specificRisk": 0.1711087340815696,
+            "totalRisk": 1.302717871750864,
+            "assetId": "d88f8c45-8022-458f-9655-b5a515dee10e",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Multi-Chain / Parachain",
+                "Multi-Chain / Parachain"
+            ]
+        },
+        {
+            "factorRisk": 1.13830268976758,
+            "specificRisk": 0.35953560279372365,
+            "totalRisk": 1.1931460058204548,
+            "assetId": "faacc897-c757-4df3-8b8b-50bc8a8572dc",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ]
+        }
+    ],
+    "factorRisk": [
+        {
+            "factor": "liquidity",
+            "absoluteContribution": 0.021002665760310128,
+            "relativeContribution": 0.02068834181046042,
+            "marginalContribution": -0.29319406583487717,
+            "factorExposure": {
+                "factorExposure": -0.07163400698613913,
+                "factorExposureBaseCcy": 69470.47291486055
+            }
+        },
+        {
+            "factor": "market",
+            "absoluteContribution": 0.9707600447948577,
+            "relativeContribution": 0.956231739906398,
+            "marginalContribution": 1.1583606699006448,
+            "factorExposure": {
+                "factorExposure": 0.8380464478978917,
+                "factorExposureBaseCcy": 9508192.039774515
+            }
+        },
+        {
+            "factor": "momentum",
+            "absoluteContribution": 0.0030468606166224295,
+            "relativeContribution": 0.003001261582928902,
+            "marginalContribution": -0.06783472191260172,
+            "factorExposure": {
+                "factorExposure": -0.04491594467724075,
+                "factorExposureBaseCcy": 27312.587266105085
+            }
+        },
+        {
+            "factor": "size",
+            "absoluteContribution": 0.03216913879017693,
+            "relativeContribution": 0.03168769843954772,
+            "marginalContribution": -0.1363349062425175,
+            "factorExposure": {
+                "factorExposure": -0.23595673094132832,
+                "factorExposureBaseCcy": 753748.5794614174
+            }
+        },
+        {
+            "factor": "volatility",
+            "absoluteContribution": -0.011785421262010248,
+            "relativeContribution": -0.01160904173933469,
+            "marginalContribution": 0.21491021113688918,
+            "factorExposure": {
+                "factorExposure": -0.054838814776015495,
+                "factorExposureBaseCcy": 40713.44810081219
+            }
+        }
+    ],
+    "sectorFactorExposures": [
+        {
+            "factor": "liquidity",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Multi-Chain / Parachain",
+                "Multi-Chain / Parachain"
+            ],
+            "absoluteRisk": 0.0018298309430012465,
+            "relativeRisk": 0.001802445862644053,
+            "marginalRisk": -0.0255441656831414,
+            "factorExposure": {
+                "factorExposure": 0.0036863669892151264,
+                "factorExposureBaseCcy": 232.47806200682473
+            }
+        },
+        {
+            "factor": "market",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Multi-Chain / Parachain",
+                "Multi-Chain / Parachain"
+            ],
+            "absoluteRisk": 0.0906187889468963,
+            "relativeRisk": 0.08926259654744324,
+            "marginalRisk": 0.10813098626478203,
+            "factorExposure": {
+                "factorExposure": 0.08077472853270146,
+                "factorExposureBaseCcy": 246591.68874373136
+            }
+        },
+        {
+            "factor": "momentum",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Multi-Chain / Parachain",
+                "Multi-Chain / Parachain"
+            ],
+            "absoluteRisk": 0.0004543279274359491,
+            "relativeRisk": 0.00044752849776790344,
+            "marginalRisk": -0.010115070064777253,
+            "factorExposure": {
+                "factorExposure": -0.008511118145454454,
+                "factorExposureBaseCcy": 347.2915579870963
+            }
+        },
+        {
+            "factor": "size",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Multi-Chain / Parachain",
+                "Multi-Chain / Parachain"
+            ],
+            "absoluteRisk": 0.0034115268317247123,
+            "relativeRisk": 0.0033604702372426725,
+            "marginalRisk": -0.014458272998251545,
+            "factorExposure": {
+                "factorExposure": -0.03149745666722908,
+                "factorExposureBaseCcy": 42485.08336730304
+            }
+        },
+        {
+            "factor": "volatility",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Multi-Chain / Parachain",
+                "Multi-Chain / Parachain"
+            ],
+            "absoluteRisk": -0.000984214053320406,
+            "relativeRisk": -0.0009694843969868809,
+            "marginalRisk": 0.017947398340761835,
+            "factorExposure": {
+                "factorExposure": -0.009430632710109797,
+                "factorExposureBaseCcy": 2343.6927237560612
+            }
+        },
+        {
+            "factor": "liquidity",
+            "sectorLevels": [
+                "Currency",
+                "BaaS",
+                "Payments"
+            ],
+            "absoluteRisk": 0.0038267648954617237,
+            "relativeRisk": 0.0037694938865900397,
+            "marginalRisk": -0.05342106433055164,
+            "factorExposure": {
+                "factorExposure": 0.012011432131927149,
+                "factorExposureBaseCcy": 2468.1663287822894
+            }
+        },
+        {
+            "factor": "market",
+            "sectorLevels": [
+                "Currency",
+                "BaaS",
+                "Payments"
+            ],
+            "absoluteRisk": 0.15308326774508077,
+            "relativeRisk": 0.1507922377433338,
+            "marginalRisk": 0.18266680579467423,
+            "factorExposure": {
+                "factorExposure": 0.1374960384407202,
+                "factorExposureBaseCcy": 714509.1444162264
+            }
+        },
+        {
+            "factor": "momentum",
+            "sectorLevels": [
+                "Currency",
+                "BaaS",
+                "Payments"
+            ],
+            "absoluteRisk": 0.0005993568806082402,
+            "relativeRisk": 0.0005903869610641032,
+            "marginalRisk": -0.013343966934573657,
+            "factorExposure": {
+                "factorExposure": -0.004139084395360226,
+                "factorExposureBaseCcy": 82.13524400567097
+            }
+        },
+        {
+            "factor": "size",
+            "sectorLevels": [
+                "Currency",
+                "BaaS",
+                "Payments"
+            ],
+            "absoluteRisk": 0.009984615930933078,
+            "relativeRisk": 0.00983518709399591,
+            "marginalRisk": -0.04231545288451973,
+            "factorExposure": {
+                "factorExposure": -0.10317786228035716,
+                "factorExposureBaseCcy": 455888.41039907094
+            }
+        },
+        {
+            "factor": "volatility",
+            "sectorLevels": [
+                "Currency",
+                "BaaS",
+                "Payments"
+            ],
+            "absoluteRisk": -0.001438118815168757,
+            "relativeRisk": -0.0014165960622241638,
+            "marginalRisk": 0.02622446931142899,
+            "factorExposure": {
+                "factorExposure": -0.018798333194869142,
+                "factorExposureBaseCcy": 9312.31581259978
+            }
+        },
+        {
+            "factor": "liquidity",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ],
+            "absoluteRisk": 0.011051029438849131,
+            "relativeRisk": 0.010885640756156827,
+            "marginalRisk": -0.15427071448044863,
+            "factorExposure": {
+                "factorExposure": -0.05035730388433458,
+                "factorExposureBaseCcy": 43382.02096697935
+            }
+        },
+        {
+            "factor": "market",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ],
+            "absoluteRisk": 0.5077691148898791,
+            "relativeRisk": 0.5001698893617802,
+            "marginalRisk": 0.6058961483143785,
+            "factorExposure": {
+                "factorExposure": 0.4404368694025943,
+                "factorExposureBaseCcy": 7331532.340631766
+            }
+        },
+        {
+            "factor": "momentum",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ],
+            "absoluteRisk": 7.916386736227479e-05,
+            "relativeRisk": 7.797910825794664e-05,
+            "marginalRisk": -0.00176248919912816,
+            "factorExposure": {
+                "factorExposure": 0.034299422756262896,
+                "factorExposureBaseCcy": 5640.201380613014
+            }
+        },
+        {
+            "factor": "size",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ],
+            "absoluteRisk": 0.012509007245042371,
+            "relativeRisk": 0.012321798601585757,
+            "marginalRisk": -0.05301398775588559,
+            "factorExposure": {
+                "factorExposure": -0.07106648887435013,
+                "factorExposureBaseCcy": 216279.4312325233
+            }
+        },
+        {
+            "factor": "volatility",
+            "sectorLevels": [
+                "Smart Contract Platform",
+                "Single Chain",
+                "Single Chain"
+            ],
+            "absoluteRisk": -0.006114177497109734,
+            "relativeRisk": -0.006022673283172971,
+            "marginalRisk": 0.11149361126936413,
+            "factorExposure": {
+                "factorExposure": -0.03265188318671944,
+                "factorExposureBaseCcy": 28095.416720396453
+            }
+        },
+        {
+            "factor": "liquidity",
+            "sectorLevels": [
+                "Currency",
+                "Transparent",
+                "Transparent DeFi Currency"
+            ],
+            "absoluteRisk": 0.004295040482998024,
+            "relativeRisk": 0.004230761305069498,
+            "marginalRisk": -0.059958121340735505,
+            "factorExposure": {
+                "factorExposure": -0.03697450222294683,
+                "factorExposureBaseCcy": 23387.807557092092
+            }
+        },
+        {
+            "factor": "market",
+            "sectorLevels": [
+                "Currency",
+                "Transparent",
+                "Transparent DeFi Currency"
+            ],
+            "absoluteRisk": 0.21928887321300145,
+            "relativeRisk": 0.2160070162538406,
+            "marginalRisk": 0.2616667295268099,
+            "factorExposure": {
+                "factorExposure": 0.17933881152187567,
+                "factorExposureBaseCcy": 1215558.8659827898
+            }
+        },
+        {
+            "factor": "momentum",
+            "sectorLevels": [
+                "Currency",
+                "Transparent",
+                "Transparent DeFi Currency"
+            ],
+            "absoluteRisk": 0.001914011941215965,
+            "relativeRisk": 0.0018853670158389482,
+            "marginalRisk": -0.042613195714122636,
+            "factorExposure": {
+                "factorExposure": -0.06656516489268896,
+                "factorExposureBaseCcy": 21242.959083499303
+            }
+        },
+        {
+            "factor": "size",
+            "sectorLevels": [
+                "Currency",
+                "Transparent",
+                "Transparent DeFi Currency"
+            ],
+            "absoluteRisk": 0.0062639887824767655,
+            "relativeRisk": 0.006170242506723374,
+            "marginalRisk": -0.026547192603860636,
+            "factorExposure": {
+                "factorExposure": -0.030214923119391952,
+                "factorExposureBaseCcy": 39095.65446252015
+            }
+        },
+        {
+            "factor": "volatility",
+            "sectorLevels": [
+                "Currency",
+                "Transparent",
+                "Transparent DeFi Currency"
+            ],
+            "absoluteRisk": -0.0032489108964113495,
+            "relativeRisk": -0.003200287996950672,
+            "marginalRisk": 0.05924473221533418,
+            "factorExposure": {
+                "factorExposure": 0.0060420343156828826,
+                "factorExposureBaseCcy": 962.0228440598947
+            }
+        }
+    ],
+    "warnings": []
+}

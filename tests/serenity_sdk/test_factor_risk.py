@@ -30,12 +30,25 @@ def test_parse_risk_attrib_v2():
     assert math.isclose(total_risk_df.loc[['volatility']].totalRisk, 1.076, abs_tol=0.001)
     assert math.isclose(total_risk_df.loc[['variance']].totalRisk, 1.157, abs_tol=0.001)
 
+    # test the old sector factor exposure extraction
+    assert len(result.get_sector_factor_exposures()) == 10
+
     # test out DataFrame generation (needs improvement, asserts are too weak)
     assert len(result.get_absolute_risk_by_asset()) == 7
     assert len(result.get_absolute_risk_by_sector()) == 10
     assert len(result.get_relative_risk_by_asset()) == 7
     assert len(result.get_relative_risk_by_sector()) == 10
     assert len(result.get_marginal_risk_by_asset()) == 7
+
+
+def test_parse_risk_attrib_v3():
+    raw_json = load_json('risk_attrib_result_v3.json')
+    result = RiskAttributionResult(raw_json)
+
+    # this is just a smoke test that we don't blow up on V3; still
+    # need to decide whether we find a way to handle V2/V3 in a single
+    # API or just remove this old, broken method and provide only new
+    assert len(result.get_sector_factor_exposures()) == 0
 
 
 def load_json(rel_path: str):

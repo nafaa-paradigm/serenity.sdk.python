@@ -435,10 +435,11 @@ class RiskAttributionResult:
             self._parse_risk_contribution('relativeContributionRisk')
 
         # handle path-based sector breakdown for exposures; yes, I know the double dictionary comprehension is bonkers
+        sector_factor_exposures_json = self.raw_json.get('sectorFactorExposure', [])
         self.sector_factor_exposures = {SectorPath(sector_exposure['sectorLevels']):
                                         {factor_exposure['factor']: self._parse_factor_exposure_object(factor_exposure)
                                          for factor_exposure in sector_exposure['factorExposure']}
-                                        for sector_exposure in self.raw_json['sectorFactorExposure']}
+                                        for sector_exposure in sector_factor_exposures_json}
 
     def _parse_raw_json_common(self):
         """
