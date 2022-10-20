@@ -1,6 +1,9 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 from uuid import UUID
+
+from serenity_sdk.types.common import SectorPath
 
 
 class Risk:
@@ -22,25 +25,6 @@ class Risk:
         return Risk(factor_risk, specific_risk, total_risk)
 
 
-@dataclass
-class SectorPath:
-    sector_levels: List[str]
-
-    def create_lookup_key(self, leaf_name: str):
-        """
-        Helper function that joins the path segments with a terminal
-        node like an asset ID or a factor name. This gives you a unique
-        key for building tables that are indexed by these tuples.
-        """
-        return f'{str(self)}/{leaf_name}'
-
-    def __str__(self) -> str:
-        return '/'.join(self.sector_levels)
-
-    def __hash__(self) -> int:
-        return hash(self.__str__())
-
-
 class FactorExposureValue:
     # forward declaration
     pass
@@ -58,6 +42,31 @@ class FactorExposureValue:
         return FactorExposureValue(factor_exposure, factor_exposure_base_ccy)
 
 
+class SectorFactorExposure:
+    # forward declaration
+    pass
+
+
+@dataclass
+class SectorFactorExposure:
+    factor: str
+    sector_path: SectorPath
+    absolute_risk: float
+    relative_risk: float
+    marginal_risk: float
+    factor_exposure: FactorExposureValue
+
+    @staticmethod
+    def parse(obj: Any) -> SectorFactorExposure:
+        factor = obj['factor']
+        sector_path = SectorPath(obj['sectorLevels'])
+        absolute_risk = obj['absoluteRisk']
+        relative_risk = obj['relativeRisk']
+        marginal_risk = obj['marginalRisk']
+        factor_exposure = FactorExposureValue.parse(obj['factorExposure'])
+        return SectorFactorExposure(factor, sector_path, absolute_risk, relative_risk, marginal_risk, factor_exposure)
+
+
 class TotalFactorRisk:
     # forward declaration
     pass
@@ -66,10 +75,10 @@ class TotalFactorRisk:
 @dataclass
 class TotalFactorRisk:
     factor: str
-    factor_exposure: FactorExposureValue
     absolute_risk_contribution: float
     relative_risk_contribution: float
     marginal_risk_contribution: float
+    factor_exposure: FactorExposureValue
 
     @staticmethod
     def parse(obj: Any) -> TotalFactorRisk:
@@ -85,7 +94,7 @@ class TotalFactorRisk:
         else:
             factor_exposure = FactorExposureValue.parse(obj)
 
-        return TotalFactorRisk(factor, factor_exposure, absolute_contrib, relative_contrib, marginal_contrib)
+        return TotalFactorRisk(factor, absolute_contrib, relative_contrib, marginal_contrib, factor_exposure)
 
 
 class RiskAttributionResult:
@@ -178,7 +187,7 @@ class RiskAttributionResult:
         """
         return self.asset_sectors
 
-    def get_sector_factor_exposures(self) -> Dict[SectorPath, Dict[str, FactorExposureValue]]:
+    def get_sector_factor_exposures(self) -> Dict[SectorPath, List[SectorFactorExposure]]:
         """
         Gets a mapping from sector path to the factor exposure for that sector, by factor name.
         """
@@ -202,12 +211,24 @@ class RiskAttributionResult:
         self.relative_risk_by_asset, self.relative_risk_by_sector, self.relative_risk_by_sector_and_factor = \
             self._parse_risk_contribution('relativeContributionRisk')
 
-        # handle path-based sector breakdown for exposures; yes, I know the double dictionary comprehension is bonkers
-        sector_factor_exposures_json = self.raw_json.get('sectorFactorExposure', [])
-        self.sector_factor_exposures = {SectorPath(sector_exposure['sectorLevels']):
-                                        {factor_exposure['factor']: FactorExposureValue.parse(factor_exposure)
-                                         for factor_exposure in sector_exposure['factorExposure']}
-                                        for sector_exposure in sector_factor_exposures_json}
+        # handle path-based sector breakdown for exposures, with backward compatibility V2/V3
+        sector_factor_exposure_json = self.raw_json.get('sectorFactorExposure', [])
+        sector_factor_exposures_json = self.raw_json.get('sectorFactorExposures', [])
+        if sector_factor_exposures_json:
+            sector_factor_exposures = [SectorFactorExposure.parse(sector_exposure)
+                                       for sector_exposure in sector_factor_exposures_json]
+        else:
+            sector_factor_exposures = []
+            for sector_exposure in sector_factor_exposure_json:
+                for factor_exposure in sector_exposure['factorExposure']:
+                    sector_factor_exposures.append(
+                        SectorFactorExposure(factor_exposure['factor'], SectorPath(sector_exposure['sectorLevels']),
+                                             None, None, None, FactorExposureValue.parse(factor_exposure))
+                    )
+
+        self.sector_factor_exposures = defaultdict(list)
+        for sector_factor_exposure in sector_factor_exposures:
+            self.sector_factor_exposures[sector_factor_exposure.sector_path].append(sector_factor_exposure)
 
     def _parse_raw_json_common(self):
         """

@@ -78,3 +78,22 @@ class PricingContext:
     mark_time: MarkTime = MarkTime.NY_EOD
     cash_treatment: CashTreatment = CashTreatment.FIAT_ONLY
     base_currency_id: UUID = None
+
+
+@dataclass
+class SectorPath:
+    sector_levels: List[str]
+
+    def create_lookup_key(self, leaf_name: str):
+        """
+        Helper function that joins the path segments with a terminal
+        node like an asset ID or a factor name. This gives you a unique
+        key for building tables that are indexed by these tuples.
+        """
+        return f'{str(self)}/{leaf_name}'
+
+    def __str__(self) -> str:
+        return '/'.join(self.sector_levels)
+
+    def __hash__(self) -> int:
+        return hash(self.__str__())

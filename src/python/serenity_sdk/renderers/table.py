@@ -1,10 +1,13 @@
+import itertools
+
 from typing import AnyStr, Dict, List
 from uuid import UUID
 
 import pandas as pd
 
+from serenity_sdk.types.common import SectorPath
 from serenity_sdk.types.refdata import AssetMaster
-from serenity_sdk.types.factors import RiskAttributionResult, Risk, SectorPath
+from serenity_sdk.types.factors import RiskAttributionResult, Risk
 
 
 class FactorRiskTables:
@@ -88,6 +91,40 @@ class FactorRiskTables:
         rel_risk_df = FactorRiskTables._to_by_sector_df(self.result.relative_risk_by_sector, 'relative')
         df = pd.merge(abs_risk_df, rel_risk_df, left_index=True, right_index=True)
         df.sort_index(inplace=True)
+        return df
+
+    def to_sector_factor_risk_data_frame(self) -> pd.DataFrame:
+        """
+        Creates a DataFrame with a flattened version of the all the by-sector, by-factor risk data; depending
+        on whether it is based on old-style parentSector / Sector vs. full sector levels, you
+        will get back a multi-level index with two or three index columns, with various intermediate
+        level in the sector hierarchy populated. This is really better visualized as a treetable, and
+        the Serenity front-end provides that view.
+
+        - sectorLevel1
+        - sectorLevel2
+        - sectorLevel3
+        - factor
+        - absoluteRisk
+        - relativeRisk
+        - marginalRisk
+        - factorExposure
+        - factorExposureBaseCcy
+        """
+        index_cols = []
+        rows = []
+        for sector_factor_exposure in itertools.chain.from_iterable(self.result.sector_factor_exposures.values()):
+            cols = {
+                'factor': sector_factor_exposure.factor,
+                'absoluteRisk': sector_factor_exposure.absolute_risk,
+                'relativeRisk': sector_factor_exposure.relative_risk,
+                'marignalRisk': sector_factor_exposure.marginal_risk,
+                'factorExposure': sector_factor_exposure.factor_exposure.factor_exposure,
+                'factorExposureBaseCcy': sector_factor_exposure.factor_exposure.factor_exposure_base_ccy
+            }
+            index_cols = FactorRiskTables._append_sector_level_cols(sector_factor_exposure.sector_path, cols, rows)
+        df = pd.DataFrame(rows)
+        df.set_index(index_cols, inplace=True)
         return df
 
     def to_factor_risk_data_frame(self) -> pd.DataFrame:
