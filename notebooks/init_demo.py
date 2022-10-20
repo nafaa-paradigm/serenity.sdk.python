@@ -3,25 +3,20 @@
 import datetime
 import pandas as pd
 
-from ipywidgets import (Button, Combobox, Dropdown, HBox, 
-                        RadioButtons, VBox)
-from IPython.display import display
+from ipywidgets import Button, HBox, Output, Text, VBox
+from IPython.display import clear_output, display
 
 from serenity_sdk.client import SerenityApiProvider, SerenityClient
 from serenity_sdk.config import Environment, Region, load_local_config
 
-api_config = Combobox(placeholder='Choose API config',
-                      options=['athansor-dev', 'athansor-test' 'pgi'],
-                      value='pgi',
-                      description='API Config:',
-                      ensure_option=True,
-                      disabled=False)
-
+api_config = Text(description='API Config:')
 connect = Button(description='Connect',
                  disabled=False,
                  button_style='',
                  tooltip='Connect to Serenity',
                  icon='link')
+
+out = Output()
 
 client = None
 api = None
@@ -36,6 +31,9 @@ def on_connect(button):
     config = load_local_config(config_id)
     client = SerenityClient(config)
     api = SerenityApiProvider(client)
+    with (out):
+        clear_output()
+        print(f'Connecting to {config_id}: env={client.env}, URL={client.config.url}')
 
 connect.on_click(on_connect)
 
@@ -43,3 +41,4 @@ hbox = HBox([api_config])
 vbox = VBox([hbox, connect])
 
 display(vbox)
+display(out)

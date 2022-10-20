@@ -12,9 +12,13 @@ from uuid import UUID
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
 from serenity_sdk.config import ConnectionConfig, Environment
-from serenity_sdk.types import (STD_DATE_FMT, AssetMaster, CalculationContext, FactorModelOutputs, ModelMetadata,
-                                Portfolio, PricingContext, RiskAttributionResult, SectorTaxonomy,
-                                ValuationResult, VaRAnalysisResult, VaRBacktestResult)
+from serenity_sdk.types.common import STD_DATE_FMT, CalculationContext, Portfolio, PricingContext
+from serenity_sdk.types.factors import RiskAttributionResult
+from serenity_sdk.types.model import ModelMetadata
+from serenity_sdk.types.refdata import AssetMaster, SectorTaxonomy
+from serenity_sdk.types.valuation import ValuationResult
+from serenity_sdk.types.var import VaRAnalysisResult, VaRBacktestResult
+
 
 SERENITY_API_VERSION = 'v1'
 
@@ -329,17 +333,6 @@ class RiskApi(SerenityApi):
     """
     def __init__(self, client: SerenityClient):
         super().__init__(client, 'risk')
-
-    def load_factor_model_outputs(self, ctx: CalculationContext) -> FactorModelOutputs:
-        """
-        Helper method that encapsulates multiple API calls to get the factor mmodel outputs
-        for a given date: matrices; factor returns; factor exposures; and other pre-computed
-        values from the factor risk model.
-
-        This is a very heavy operation but only has to be called once for a given day and model.
-        With the next release you will need to specify a model configuration ID from Model API.
-        """
-        pass
 
     def compute_risk_attrib(self, ctx: CalculationContext,
                             portfolio: Portfolio,
