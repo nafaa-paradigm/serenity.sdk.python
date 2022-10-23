@@ -25,13 +25,33 @@ SERENITY_API_VERSION = 'v1'
 
 class CallType(Enum):
     """
-    Types of REST calls supported.
+    Types of REST calls supported. All values correspond to HTTP methods from
+    `RFC 9110 <https://www.rfc-editor.org/rfc/rfc9110.html#name-method-definitions>`_.
     """
     DELETE = 'DELETE'
+    """
+    Used for soft-delete operations in the API, e.g. delete a custom scenario
+    """
+
     GET = 'GET'
+    """
+    Used for basic retrieval operations in the API
+    """
+
     PATCH = 'PATCH'
+    """
+    Used for updating objects in the Serenity platform, e.g. updating a custom scenario
+    """
+
     POST = 'POST'
+    """
+    Used for compute-type operations like risk attribution and backtesting VaR.
+    """
+
     PUT = 'PUT'
+    """
+    Used to add content to the Serenity platform, e.g. adding a new custom scenario
+    """
 
 
 class SerenityError(Exception):
@@ -67,6 +87,14 @@ class APIPathMapper:
     SDK calls to continue to work against all environments to ease transitions.
     """
     def __init__(self, env: Environment = Environment.PRODUCTION):
+        """
+        Internal helper class that takes care of re-mapping API paths; once
+        we are in full production we will switch to using API versions to
+        support these transitions.
+
+        :param env: target Serenity environment, if not production
+        """
+
         # the full set of API paths that are known to the SDK;
         # not every environment and every version of the API supports
         # every path in this list
@@ -132,14 +160,19 @@ class APIPathMapper:
     def get_call_type(self, latest_path: str) -> CallType:
         """
         For the given path (which may be a legacy path) get whether it is GET, POST, etc..
+
+        :param latest_path: the API path from the *latest* version of the API
         """
         call_type = self._get_path_config(latest_path)['call_type']
         return call_type
 
-    def get_api_path(self, input_path: str):
+    def get_api_path(self, input_path: str) -> str:
         """
         Given the new API path, return the corresponding path currently supported in production.
         If there is no configuration for this path, this call raises UnsupportedOperationException.
+
+        :param input_path: the API path requested by the caller
+        :return: the correct API path for the target environment
         """
         # first make sure the path is supported
         assert self._get_path_config(input_path) is not None
@@ -155,9 +188,18 @@ class APIPathMapper:
         return api_path
 
     def _get_env_path_aliases(self) -> Dict[AnyStr, AnyStr]:
+        """
+        Gets all the old-to-new path mapping aliases.
+        """
         return self.env_override_map[self.env]['aliases']
 
     def _get_path_config(self, api_path: str) -> Dict[AnyStr, Any]:
+        """
+        Gets the configuration parameters given an API path.
+
+        :param api_path: the *latest* API path
+        """
+
         # a bit tricky here: we always use new-style API paths to look up the path configuration
         # to avoid duplication, and so we need to translate any old => new first
         latest_path = self.path_aliases.inverse.get(api_path, api_path)
@@ -173,6 +215,14 @@ class APIPathMapper:
 
 class SerenityClient:
     def __init__(self, config: ConnectionConfig):
+        """
+        Low-level client object which can be used for direct calls to any REST endpoint.
+
+        :param config: the Serenity platform connection configuration
+
+        .. seealso:: :class:`SerenityApiProvider` for an easier-to-use API wrapper
+        """
+
         scopes = config.get_scopes()
         credential = get_credential_user_app(config)
 
@@ -188,6 +238,12 @@ class SerenityClient:
         Low-level function that lets you call *any* Serenity REST API endpoint. For the call
         arguments you can pass a dictionary of request parameters or a JSON object, or both.
         In future versions of the SDK we will offer higher-level calls to ease usage.
+
+        :param api_group: API take like risk or refdata
+        :param api_path: the requested API sub-path to call (non including group or version prefix)
+        :param params: any GET-style parameters to include in the call
+        :param body_json: a JSON object to POST or PATCH on the server
+        :return: the raw JSON response object
         """
         host = self.config.get_url()
 
@@ -226,6 +282,11 @@ class SerenityClient:
 
     @staticmethod
     def _check_response(response_json: Any):
+        """
+        Helper function that checks for various kinds of error responses and raises exceptions.
+
+        :param response_json: the raw server response
+        """
         if 'detail' in response_json:
             raise SerenityError(response_json['detail'])
         elif 'message' in response_json:
@@ -240,15 +301,27 @@ class SerenityApi(ABC):
     add typed operations and various helper functions specific to that API group.
     """
     def __init__(self, client: SerenityClient, api_group: str):
+        """
+        :param client: the raw client to delegate to when making API calls
+        :param api_group: the specific API group to target, e.g. risk or refdata
+        """
         self.client = client
         self.api_group = api_group
 
     def _call_api(self, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
+        """
+        Helper method for derived classes that calls a target API in the supported API group.
+
+        :param api_path: the target API path, excluding version prefix and API group (e.g. `/v1/risk`)
+        :param params: the GET-style parameters to pass through to the raw client
+        :param body_json: a raw JSON object to POST or PATCH via the raw client
+        :return: the raw JSON response object
+        """
         return self.client.call_api(self.api_group, api_path, params, body_json)
 
     def _get_env(self) -> Environment:
         """
-        Internal helper to get the current API environment (dev, test, production)
+        Internal helper to get the current API environment (dev, test, production).
 
         :return: the currently-connected environment
         """
@@ -258,6 +331,8 @@ class SerenityApi(ABC):
     def _create_std_params(as_of_date: date) -> Dict[str, str]:
         """
         Internal helper that generates params dict based on common parameters for Model API.
+
+        :param as_of_date: the universal as_of_date for all bitemporal API's
         """
         if as_of_date is None:
             return {}
@@ -271,6 +346,9 @@ class RefdataApi(SerenityApi):
     reference data needed for constructing portfolios and running risk models.
     """
     def __init__(self, client: SerenityClient):
+        """
+        :param client: the raw client to delegate to when making API calls
+        """
         super().__init__(client, 'refdata')
 
     def load_asset_master(self, as_of_date: date = None) -> AssetMaster:
@@ -280,6 +358,9 @@ class RefdataApi(SerenityApi):
         so it can be queried without hitting the server multiple times. Reference data
         is always as of a date, as it can change over time, but if a date is not provided
         the system will default to the latest date.
+
+        :param as_of_date: the effective date for all loaded refdata, else latest if None
+        :return: an :class:`AssetMaster` object containing all asset-linked reference data
         """
         asset_summaries = self.get_asset_summaries(as_of_date)
         return AssetMaster(asset_summaries)
@@ -287,8 +368,11 @@ class RefdataApi(SerenityApi):
     def get_asset_summaries(self, as_of_date: date = None) -> List[Any]:
         """
         Gets the list of asset records in the asset master. In general you should prefer
-        to use load_asset_master() instead, which will help parsing the JSON records,
+        to use :func:`load_asset_master` instead, which will help parsing the JSON records,
         rather than this lower-level call.
+
+        :param as_of_date: the effective date for all loaded refdata, else latest if None
+        :return: a list of JSON-formatted asset summary objects
         """
         params = self._create_std_params(as_of_date)
         resp = self._call_api('/asset/summaries', params)
@@ -297,8 +381,9 @@ class RefdataApi(SerenityApi):
 
     def get_asset_types(self, as_of_date: date = None) -> Dict[AnyStr, AnyStr]:
         """
-        Gets the list of supported asset types in the system, e.g. TOKEN, as
-        a map from name to description.
+        Gets the list of supported asset types in the system, e.g. TOKEN
+
+        :return: a map from name to description
         """
         params = self._create_std_params(as_of_date)
         resp = self._call_api('/asset/types', params)
@@ -307,8 +392,9 @@ class RefdataApi(SerenityApi):
 
     def get_symbol_authorities(self, as_of_date: date = None) -> Dict[AnyStr, AnyStr]:
         """
-        Gets the list of supported symbol authorities, e.g. KAIKO, DAR or COINGECKO,
-        as a map from name to description.
+        Gets the list of supported symbol authorities, e.g. KAIKO, DAR or COINGECKO
+
+        :return: a map from name to description
         """
         params = self._create_std_params(as_of_date)
         resp = self._call_api('/symbol/authorities', params)
@@ -319,7 +405,9 @@ class RefdataApi(SerenityApi):
         """
         Gets a mapping from a short key like DACS or DATS to the sectory taxonomy ID (UUID).
         This will be required in the next release if you wish to override the sector
-        taxonomy in use for risk attribution. Currently informational only.
+        taxonomy in use for risk attribution.
+
+        :return: a map from taxonomy short name to taxonomy UUID
         """
         params = self._create_std_params(as_of_date)
         resp = self._call_api('/sector/taxonomies', params)
@@ -332,6 +420,9 @@ class RiskApi(SerenityApi):
     The risk API group covers risk attribution, VaR and (in a future release) scenario analysis.
     """
     def __init__(self, client: SerenityClient):
+        """
+        :param client: the raw client to delegate to when making API calls
+        """
         super().__init__(client, 'risk')
 
     def compute_risk_attrib(self, ctx: CalculationContext,
@@ -347,6 +438,12 @@ class RiskApi(SerenityApi):
 
         Note that sector_taxonomy support will be dropped with the next release, once the refdata endpoint
         for looking up sector_taxonomy_id is available.
+
+        :param ctx: the common risk calculation parameters to use, e.g. as-of date or factor risk model ID
+        :param portfolio: the portfolio on which to perform risk attribution
+        :param sector_taxonomy_id: the unique ID of the sector taxonomy for pivoting, else DACS if None
+        :param sector_taxonomy: *DEPRECATED* sector taxonomy for pivoting; use `sector_taxonomy_id` instead
+        :return: a typed wrapper around the risk attribution results
         """
         body_json = {
             **self._create_std_params(ctx.as_of_date),
@@ -369,6 +466,16 @@ class RiskApi(SerenityApi):
         currently ignores CalculationContext.model_config_id, so if you want to use a
         different model you must set var_model to either 'VAR_PARAMETRIC_NORMAL' or
         'VAR_HISTORICAL' -- this will be fixed in the next production upgrade.
+
+        :param ctx: the common risk calculation parameters to use, e.g. as-of date or VaR model ID
+        :param portfolio: the portfolio to test against the VaR model
+        :param horizon_days: loss forecast horizon in days , defaults to 1 day; it is used to scale single day VaR
+            by `sqrt(horizonDays)`; must be positive
+        :param lookback_period: length of risk factor time series data used to calibrate VaR, measured in days
+        :param quantiles: loss forecast quantiles used in VaR calculation; must be unique
+            and in range 0 < quantile < 100
+        :param var_model: *DEPRECATED* old-style; use `modelConfigId` in :class:`CalculationContext`
+        :return: a typed wrapper around the VaR calculation results
         """
         request = {
             **self._create_std_params(ctx.as_of_date),
@@ -381,7 +488,7 @@ class RiskApi(SerenityApi):
         raw_json = self._call_api('/var/compute', {}, request)
         backcompat = self._get_env() == Environment.PRODUCTION
         result_json = raw_json if backcompat else raw_json['result']
-        result = VaRAnalysisResult.parse(result_json, backcompat=backcompat)
+        result = VaRAnalysisResult._parse(result_json, backcompat=backcompat)
         result.warnings = [] if backcompat else raw_json.get('warnings', [])
         return result
 
@@ -401,6 +508,17 @@ class RiskApi(SerenityApi):
         currently ignores CalculationContext.model_config_id, so if you want to use a
         different model you must set var_model to either 'VAR_PARAMETRIC_NORMAL' or
         'VAR_HISTORICAL' -- this will be fixed in the next production upgrade.
+
+        :param ctx: the common risk calculation parameters to use, e.g. as-of date or VaR model ID
+        :param portfolio: the portfolio to test against the VaR model
+        :param start_date: the end date of the backtesting run range
+        :param end_date: the end date of the backtesting run range
+        :param lookback_period: length of risk factor time series data used to calibrate VaR, measured in days
+        :param quantiles: loss forecast quantiles used in VaR calculation; must be unique
+            and in range 0 < quantile < 100
+        :param quantile: *DEPRECATED* old-style; use `quantiles` with a single value
+        :param var_model: *DEPRECATED* old-style; use `modelConfigId` in :class:`CalculationContext`
+        :return: a typed wrapper around the VaR calculation results
         """
         request = {
             **self._create_std_params(ctx.as_of_date),
@@ -411,12 +529,15 @@ class RiskApi(SerenityApi):
             **self._create_var_model_params(ctx.model_config_id, var_model, lookback_period, quantile, quantiles)
         }
         raw_json = self._call_api('/var/backtest', {}, request)
-        return VaRBacktestResult.parse(raw_json, backcompat=(self._get_env() == Environment.PRODUCTION),
-                                       backcompat_quantile=quantile)
+        return VaRBacktestResult._parse(raw_json, backcompat=(self._get_env() == Environment.PRODUCTION),
+                                        backcompat_quantile=quantile)
 
     def get_asset_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
         """
         Gets the asset covariance matrix with asset ID's translated to native symbols, as a DataFrame.
+
+        :param ctx: the common risk calculation parameters to use, specifically the as-of date and model ID in this case
+        :return: a DataFrame pivoted by `assetId1` and `assetId2` with the asset covariance `value` as a column
         """
         params = RiskApi._create_get_params(ctx)
         raw_json = self._call_api('/market/factor/asset_covariance', params)
@@ -425,6 +546,9 @@ class RiskApi(SerenityApi):
     def get_asset_residual_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
         """
         Gets the asset residual covariance matrix with asset ID's translated to native symbols, as a DataFrame.
+
+        :param ctx: the common risk calculation parameters to use, specifically the as-of date and model ID in this case
+        :return: a DataFrame pivoted by `assetId1` and `assetId2` with the asset residual `value` as a column
         """
         params = RiskApi._create_get_params(ctx)
         raw_json = self._call_api('/market/factor/residual_covariance', params)
@@ -436,6 +560,10 @@ class RiskApi(SerenityApi):
     def get_factor_correlation_matrix(self, ctx: CalculationContext) -> pd.DataFrame:
         """
         Gets the factor correlation matrix.
+
+        :param ctx: the common risk calculation parameters to use, specifically the as-of date and model ID in this case
+        :return: a DataFrame pivoted by `factor1` and `factor2` with the
+            factor correlation coefficient `value` as a column
         """
         params = RiskApi._create_get_params(ctx)
         raw_json = self._call_api('/market/factor/correlation', params)
@@ -444,6 +572,9 @@ class RiskApi(SerenityApi):
     def get_factor_covariance_matrix(self, ctx: CalculationContext) -> pd.DataFrame:
         """
         Gets the factor covariance matrix.
+
+        :param ctx: the common risk calculation parameters to use, specifically the as-of date and model ID in this case
+        :return: a DataFrame pivoted by `factor1` and `factor2` with the factor covariance `value` as a column
         """
         params = RiskApi._create_get_params(ctx)
         raw_json = self._call_api('/market/factor/covariance', params)
@@ -451,7 +582,10 @@ class RiskApi(SerenityApi):
 
     def get_asset_factor_exposures(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
         """
-        Gets the factor loadings by assets as a DataFrame.
+        Gets the factor exposures by assets as a DataFrame.
+
+        :param ctx: the common risk calculation parameters to use, specifically the as-of date and model ID in this case
+        :return: a DataFrame pivoted by `assetId` and `factor` with the exposure `value` as a column
         """
         def map_asset_id(asset_id: str):
             return asset_master.get_symbol_by_id(UUID(asset_id))
@@ -467,6 +601,9 @@ class RiskApi(SerenityApi):
     def get_factor_returns(self, ctx: CalculationContext) -> pd.DataFrame:
         """
         Gets the factor returns as a DataFrame.
+
+        :param ctx: the common risk calculation parameters to use, specifically the as-of date and model ID in this case
+        :return: a DataFrame indexed by `closeDate` and `factor` with the return `value` as a column
         """
         params = RiskApi._create_get_params(ctx)
         raw_json = self._call_api('/market/factor/returns', params)
@@ -477,6 +614,9 @@ class RiskApi(SerenityApi):
     def get_factor_portfolios(self, ctx: CalculationContext) -> Dict[AnyStr, Portfolio]:
         """
         Gets the factor index compositions for each factor.
+
+        :param ctx: the common risk calculation parameters to use, specifically the as-of date and model ID in this case
+        :return: a mapping from factor name to the factor portfolio
         """
         params = RiskApi._create_get_params(ctx)
         raw_json = self._call_api('/market/factor/indexcomps', params)
@@ -520,6 +660,13 @@ class RiskApi(SerenityApi):
 
     @staticmethod
     def _asset_matrix_to_dataframe(matrix_json: Any, asset_master: AssetMaster) -> pd.DataFrame:
+        """
+        Converts an asset matrix (asset pairs and values) into a simple DataFrame
+
+        :param matrix_json: the raw matrix output from the API
+        :param asset_master: a loaded AssetMaster to convert UUID to symbols
+        :return: a DataFrame pivoted by `assetId1` and `assetId2` with `value` columns
+        """
         def map_asset_id(asset_id: str):
             return asset_master.get_symbol_by_id(UUID(asset_id))
 
@@ -532,17 +679,35 @@ class RiskApi(SerenityApi):
 
     @staticmethod
     def _factor_matrix_to_dataframe(matrix_json: Any) -> pd.DataFrame:
+        """
+        Converts a factor matrix (factor pairs and values) into a simple DataFrame
+
+        :param matrix_json: _description_
+        :return: a DataFrame pivoted by `factor1` and `factor2` with `value` columns
+        """
         df = pd.DataFrame.from_dict(matrix_json).dropna()
         df = df.pivot(index='factor1', columns='factor2', values='value')
         return df
 
     @staticmethod
     def _to_portfolio(indexcomps: Any) -> Portfolio:
+        """
+        Converts raw factor index composition data in JSON format to a typed Portfolio object.
+
+        :param indexcomps: _description_
+        :return: the typed Portfolio object
+        """
         positions = {UUID(entry['assetId']): entry['weight'] for entry in indexcomps if entry['weight'] != 0}
         return Portfolio(positions)
 
     @staticmethod
     def _create_get_params(ctx: CalculationContext) -> Dict[AnyStr, Any]:
+        """
+        Creates the full set of GET-style parameters given a :class:`CalculationContext`.
+
+        :param ctx: the bundle of calculation defaults, e.g. base currency to use
+        :return: the full set of call parameters
+        """
         return {
             'as_of_date': ctx.as_of_date.strftime(STD_DATE_FMT),
             'model_config_id': ctx.model_config_id
@@ -554,9 +719,20 @@ class ValuationApi(SerenityApi):
     The valuation API group covers basic tools for NAV and other portfolio valuation calcs.
     """
     def __init__(self, client: SerenityClient):
+        """
+        :param client: the raw client to delegate to when making API calls
+        """
         super().__init__(client, 'valuation')
 
-    def compute_portfolio_value(self, ctx: PricingContext, portfolio: Portfolio):
+    def compute_portfolio_value(self, ctx: PricingContext, portfolio: Portfolio) -> ValuationResult:
+        """
+        Computes portfolio NAV and other high-level valuation details at both the portfolio level
+        and position-by-position.
+
+        :param ctx: the pricing parameters to use, e.g. which base currency and the as-of date for prices
+        :param portfolio: the portfolio to value
+        :return: a parsed :class:`ValuationResult` containing all portfolio & position values
+        """
         request = {
             'portfolio': {'assetPositions': portfolio.to_asset_positions()},
             'pricing_context': {
@@ -568,7 +744,7 @@ class ValuationApi(SerenityApi):
             }
         }
         raw_json = self._call_api('/portfolio/compute', {}, request)
-        return ValuationResult.parse(raw_json)
+        return ValuationResult._parse(raw_json)
 
 
 class ModelApi(SerenityApi):
@@ -580,11 +756,16 @@ class ModelApi(SerenityApi):
     and other risk tools.
     """
     def __init__(self, client: SerenityClient):
+        """
+        :param client: the raw client to delegate to when making API calls
+        """
         super().__init__(client, 'catalog')
 
     def load_model_metadata(self, as_of_date: date = None) -> ModelMetadata:
         """
         Helper method that preloads all the model metadata into memory for easy access.
+
+        :param as_of_date: the effective date for the model metadata in the database, else latest if None
         """
         model_classes = self.get_model_classes(as_of_date)
         models = self.get_models(as_of_date)
@@ -595,6 +776,8 @@ class ModelApi(SerenityApi):
         """
         Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
         These are the high-level groups of models supported by Serenity.
+
+        :param as_of_date: the effective date for the model metadata in the database, else latest if None
         """
         params = SerenityApi._create_std_params(as_of_date)
         return self._call_api('/model/modelclasses', params=params)['modelClasses']
@@ -603,6 +786,8 @@ class ModelApi(SerenityApi):
         """
         Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
         These are the high-level groups of models supported by Serenity.
+
+        :param as_of_date: the effective date for the model metadata in the database, else latest if None
         """
         params = SerenityApi._create_std_params(as_of_date)
         return self._call_api('/model/models', params=params)['models']
@@ -611,6 +796,8 @@ class ModelApi(SerenityApi):
         """
         Gets the list of available model classes, e.g. Market Risk, Liquidity Risk or VaR.
         These are the high-level groups of models supported by Serenity.
+
+        :param as_of_date: the effective date for the model metadata in the database, else latest if None
         """
         params = SerenityApi._create_std_params(as_of_date)
         return self._call_api('/model/modelconfigurations', params=params)['modelConfigurationSummaries']
@@ -621,19 +808,36 @@ class SerenityApiProvider:
     Simple entrypoint that gives you access to the full set of Serenity API's from a single class.
     """
     def __init__(self, client: SerenityClient):
+        """
+        :param client: the raw client to wrap around for every typed endpoint
+        """
+
         self.refdata_api = RefdataApi(client)
         self.risk_api = RiskApi(client)
         self.valuation_api = ValuationApi(client)
         self.model_api = ModelApi(client)
 
-    def refdata(self):
+    def refdata(self) -> RefdataApi:
+        """
+        Gets a typed wrapper around all the supported reference data API calls.
+        """
         return self.refdata_api
 
-    def risk(self):
+    def risk(self) -> RiskApi:
+        """
+        Gets a typed wrapper aorund all the supported risk-related API calls. Currently this mixes
+        factor risk attribution and VaR-related calls, but we may break this out later.
+        """
         return self.risk_api
 
-    def valuation(self):
+    def valuation(self) -> ValuationApi:
+        """
+        Gets a typed wrapper for all the portfolio valuation API functions.
+        """
         return self.valuation_api
 
-    def model(self):
+    def model(self) -> ModelApi:
+        """
+        Gets a typed wrapper for all the ModelOps (model metadata) API functions.
+        """
         return self.model_api

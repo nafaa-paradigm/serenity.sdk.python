@@ -10,13 +10,24 @@ class Environment(Enum):
     The operational environment (e.g. test vs. production) to use for connection purposes.
     """
     DEV = 'dev'
+    """
+    Serenity's development environment
+    """
+
     TEST = 'test'
+    """
+    Serenity's UAT (QA) environment
+    """
+
     PRODUCTION = ''
+    """
+    Serenity's production environment
+    """
 
 
 class Region(Enum):
     """
-    The regional installation of Serenity to use for connection purposes.
+    The regional installation of Serenity to use for connection purposes. Not currently used.
     """
     GLOBAL = ''
     EASTUS = 'eastus'
@@ -28,13 +39,15 @@ class ConnectionConfig:
     Internal class that handles interpreting the JSON config file generated
     by the Serenity UX API Management function. This class is for internal
     use and normally you should not need to instantiate it.
+
+    .. seealso:: :func:`load_local_config`: utility function to load configs from local files
     """
     def __init__(self, config: Any, config_path: str):
         """
         Builds a connection configuration from a parsed JSON object.
 
         :param config: a parsed JSON object containing a Serenity API configuration
-        :param config_path: for error messages -- the path the JSON was loaded from
+        :param config_path: for error messages -- the path from which the JSON was loaded
         """
         # basic validation, extract the schema version
         schema_version = ConnectionConfig._validate_config_json(config, config_path)
@@ -63,31 +76,19 @@ class ConnectionConfig:
             # with V2 we don't actually need Region, so default it for now
             self.region = Region.GLOBAL if self.env == Environment.PRODUCTION else Region.EASTUS
 
-    @staticmethod
-    def _validate_config_json(config: Any, config_path: str) -> int:
-        required_keys = ['schemaVersion', 'tenantId', 'clientId', 'userApplicationId', 'userApplicationSecret']
-        required_extra_keys_v2 = ['url', 'scope']
-        if not all(key in config for key in required_keys):
-            raise ValueError(f'{config_path} invalid. Required keys: {required_keys}; got: {list(config.keys())}')
-        schema_version = config['schemaVersion']
-        if schema_version not in [1, 2]:
-            raise ValueError(f'At this time only schemaVersion 1 or 2 supported; '
-                             f'{config_path} is version {schema_version}')
-
-        if schema_version == 2:
-            if not all(key in config for key in required_extra_keys_v2):
-                raise ValueError(f'{config_path} invalid. Missing V2 keys: {required_extra_keys_v2}; '
-                                 f'got: {list(config.keys())}')
-
-        return schema_version
-
     def get_scopes(self) -> List[str]:
+        """
+        Gets all of the OAuth scopes used for acquiring the access token
+        """
         if self.schema_version == 1:
             return self._get_scopes_v1()
         else:
             return [self.scope]
 
     def get_url(self) -> str:
+        """
+        Gets the client-specific URL to use for all API requests
+        """
         if self.schema_version == 1:
             return self._get_url_v1('https://serenity-rest')
         else:
@@ -112,6 +113,31 @@ class ConnectionConfig:
             host = f'{host}-{self.region.value}'
         host = f'{host}.cloudwall.network'
         return host
+
+    @staticmethod
+    def _validate_config_json(config: Any, config_path: str) -> int:
+        """
+        Validates a config JSON from Serenity and ensures it matches the schema
+
+        :param config: raw config JSON object
+        :param config_path: file path from which the JSON was loaded; for error messages
+        :return: the schema version loaded (currently 1 or 2)
+        """
+        required_keys = ['schemaVersion', 'tenantId', 'clientId', 'userApplicationId', 'userApplicationSecret']
+        required_extra_keys_v2 = ['url', 'scope']
+        if not all(key in config for key in required_keys):
+            raise ValueError(f'{config_path} invalid. Required keys: {required_keys}; got: {list(config.keys())}')
+        schema_version = config['schemaVersion']
+        if schema_version not in [1, 2]:
+            raise ValueError(f'At this time only schemaVersion 1 or 2 supported; '
+                             f'{config_path} is version {schema_version}')
+
+        if schema_version == 2:
+            if not all(key in config for key in required_extra_keys_v2):
+                raise ValueError(f'{config_path} invalid. Missing V2 keys: {required_extra_keys_v2}; '
+                                 f'got: {list(config.keys())}')
+
+        return schema_version
 
 
 def load_local_config(config_id: str, config_dir: str = None) -> ConnectionConfig:

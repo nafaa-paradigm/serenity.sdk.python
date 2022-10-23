@@ -20,10 +20,74 @@ serenity\_sdk.client module
    :undoc-members:
    :show-inheritance:
 
-serenity\_sdk.types module
---------------------------
+serenity\_sdk.config module
+---------------------------
 
-.. automodule:: serenity_sdk.types
+.. automodule:: serenity_sdk.config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+serenity\_sdk.renderers.plot module
+-----------------------------------
+
+.. automodule:: serenity_sdk.renderers.plot
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+serenity\_sdk.renderers.table module
+------------------------------------
+
+.. automodule:: serenity_sdk.renderers.table
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+serenity\_sdk.types.common module
+---------------------------------
+
+.. automodule:: serenity_sdk.types.common
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+serenity\_sdk.types.factors module
+----------------------------------
+
+.. automodule:: serenity_sdk.types.factors
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+serenity\_sdk.types.model module
+--------------------------------
+
+.. automodule:: serenity_sdk.types.model
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+serenity\_sdk.types.refdata module
+----------------------------------
+
+.. automodule:: serenity_sdk.types.refdata
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+serenity\_sdk.types.valuation module
+------------------------------------
+
+.. automodule:: serenity_sdk.types.valuation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+serenity\_sdk.types.var module
+------------------------------
+
+.. automodule:: serenity_sdk.types.var
    :members:
    :undoc-members:
    :show-inheritance:

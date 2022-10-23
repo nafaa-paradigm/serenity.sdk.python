@@ -13,12 +13,27 @@ class Risk:
 
 @dataclass
 class Risk:
+    """
+    A set of risk metrics, breaking out factor vs. idiosyncratic risk.
+    """
+
     factor_risk: float
+    """
+    The portion of the portfolio risk explained by the factor risk model
+    """
+
     specific_risk: float
+    """
+    The portion of the risk not explained by the model; sometimes called idiosyncratic risk
+    """
+
     total_risk: float
+    """
+    The total risk in the portfolio, sector or asset, inclusive of both explained factor risk and asset-specific risk
+    """
 
     @staticmethod
-    def parse(obj: Any) -> Risk:
+    def _parse(obj: Any) -> Risk:
         factor_risk = obj['factorRisk']
         specific_risk = obj['specificRisk']
         total_risk = obj['totalRisk']
@@ -32,11 +47,22 @@ class FactorExposureValue:
 
 @dataclass
 class FactorExposureValue:
+    """
+    Information about the exposure of the portfolio, sector or asset to a particular factor
+    """
+
     factor_exposure: float
+    """
+    The betas of the model's regression of asset returns vs. each factor; also called factor loadings
+    """
+
     factor_exposure_base_ccy: float
+    """
+    The notional value of factor exposure for the portfolio, sector or asset, as a weighted sum of normalized betas
+    """
 
     @staticmethod
-    def parse(obj: Any) -> FactorExposureValue:
+    def _parse(obj: Any) -> FactorExposureValue:
         factor_exposure = obj['factorExposure']
         factor_exposure_base_ccy = obj.get('factorExposureBaseCcy', 0)
         return FactorExposureValue(factor_exposure, factor_exposure_base_ccy)
@@ -49,21 +75,48 @@ class SectorFactorExposure:
 
 @dataclass
 class SectorFactorExposure:
+    """
+    Sector-specific risk metrics and factor exposures
+    """
+
     factor: str
+    """
+    The name of the factor, e.g. Market or Momentum
+    """
+
     sector_path: SectorPath
+    """
+    The fully-qualified path to this particular sector, sector / sub-sector, etc..
+    """
+
     absolute_risk: float
+    """
+    The sector's risk expressed as absolute volatility %
+    """
+
     relative_risk: float
+    """
+    The sector path's risk expressed as a fraction of portfolio risk
+    """
+
     marginal_risk: float
+    """
+    The portfolio's sensitivity to the particular risk measure for this sector path
+    """
+
     factor_exposure: FactorExposureValue
+    """
+    The sector's exposure to the risk of the given factor
+    """
 
     @staticmethod
-    def parse(obj: Any) -> SectorFactorExposure:
+    def _parse(obj: Any) -> SectorFactorExposure:
         factor = obj['factor']
         sector_path = SectorPath(obj['sectorLevels'])
         absolute_risk = obj['absoluteRisk']
         relative_risk = obj['relativeRisk']
         marginal_risk = obj['marginalRisk']
-        factor_exposure = FactorExposureValue.parse(obj['factorExposure'])
+        factor_exposure = FactorExposureValue._parse(obj['factorExposure'])
         return SectorFactorExposure(factor, sector_path, absolute_risk, relative_risk, marginal_risk, factor_exposure)
 
 
@@ -74,14 +127,37 @@ class TotalFactorRisk:
 
 @dataclass
 class TotalFactorRisk:
+    """
+    High-level summary of portfolio risk by factor
+    """
+
     factor: str
+    """
+    The name of the factor, e.g. Market or Momentum
+    """
+
     absolute_risk_contribution: float
+    """
+    The portfolio's risk from this factor expressed as absolute volatility or variance
+    """
+
     relative_risk_contribution: float
+    """
+    The portfolio's risk from this factor expressed as a fraction of portfolio risk
+    """
+
     marginal_risk_contribution: float
+    """
+    The portfolio's sensitivity to changes in the amount of exposure to this particular factor
+    """
+
     factor_exposure: FactorExposureValue
+    """
+    The portfolio's exposure to the risk of the given factor
+    """
 
     @staticmethod
-    def parse(obj: Any) -> TotalFactorRisk:
+    def _parse(obj: Any) -> TotalFactorRisk:
         factor = obj['factor']
         absolute_contrib = obj['absoluteContribution']
         relative_contrib = obj['relativeContribution']
@@ -90,9 +166,9 @@ class TotalFactorRisk:
         # backward compatibility
         factor_exposure_obj = obj['factorExposure']
         if isinstance(factor_exposure_obj, dict):
-            factor_exposure = FactorExposureValue.parse(factor_exposure_obj)
+            factor_exposure = FactorExposureValue._parse(factor_exposure_obj)
         else:
-            factor_exposure = FactorExposureValue.parse(obj)
+            factor_exposure = FactorExposureValue._parse(obj)
 
         return TotalFactorRisk(factor, absolute_contrib, relative_contrib, marginal_contrib, factor_exposure)
 
@@ -104,6 +180,9 @@ class RiskAttributionResult:
     etc.. We strongly recommend using this to ease migrations when output formats change.
     """
     def __init__(self, raw_json: Any):
+        """
+        :param raw_json: the raw JSON result object from the server
+        """
         self.raw_json = raw_json
 
         self.portfolio_variance = None
@@ -215,7 +294,7 @@ class RiskAttributionResult:
         sector_factor_exposure_json = self.raw_json.get('sectorFactorExposure', [])
         sector_factor_exposures_json = self.raw_json.get('sectorFactorExposures', [])
         if sector_factor_exposures_json:
-            sector_factor_exposures = [SectorFactorExposure.parse(sector_exposure)
+            sector_factor_exposures = [SectorFactorExposure._parse(sector_exposure)
                                        for sector_exposure in sector_factor_exposures_json]
         else:
             sector_factor_exposures = []
@@ -223,7 +302,7 @@ class RiskAttributionResult:
                 for factor_exposure in sector_exposure['factorExposure']:
                     sector_factor_exposures.append(
                         SectorFactorExposure(factor_exposure['factor'], SectorPath(sector_exposure['sectorLevels']),
-                                             None, None, None, FactorExposureValue.parse(factor_exposure))
+                                             None, None, None, FactorExposureValue._parse(factor_exposure))
                     )
 
         self.sector_factor_exposures = defaultdict(list)
@@ -237,24 +316,27 @@ class RiskAttributionResult:
         self.portfolio_volatility = self._parse_total_risk('volatility')
         self.portfolio_variance = self._parse_total_risk('variance')
 
-        self.portfolio_risk_by_factor = {risk_obj['factor']: TotalFactorRisk.parse(risk_obj)
+        self.portfolio_risk_by_factor = {risk_obj['factor']: TotalFactorRisk._parse(risk_obj)
                                          for risk_obj in self.raw_json['factorRisk']}
 
-        self.marginal_risk_by_asset = {UUID(risk_obj['assetId']): Risk.parse(risk_obj)
+        self.marginal_risk_by_asset = {UUID(risk_obj['assetId']): Risk._parse(risk_obj)
                                        for risk_obj in self.raw_json['assetMarginalRisk']}
 
     def _parse_total_risk(self, risk_measure: str) -> Risk:
+        """
+        Internal helper that parses absolute or relative total risk per dimension.
+        """
         obj = self.raw_json['totalRisk'][risk_measure]
-        return Risk.parse(obj)
+        return Risk._parse(obj)
 
     def _parse_risk_contribution(self, risk_measure: str) -> Tuple:
         """
         Handle the Ricardo-style sector paths, which include every segment in the path.
         """
         contrib_obj = self.raw_json[risk_measure]
-        risk_by_asset = {UUID(risk_obj['assetId']): Risk.parse(risk_obj)
+        risk_by_asset = {UUID(risk_obj['assetId']): Risk._parse(risk_obj)
                          for risk_obj in contrib_obj['byAsset']}
-        risk_by_sector = {SectorPath(risk_obj['sectorLevels']): Risk.parse(risk_obj)
+        risk_by_sector = {SectorPath(risk_obj['sectorLevels']): Risk._parse(risk_obj)
                           for risk_obj in contrib_obj['bySector']}
         risk_by_sector_and_factor = {}  # will be supported in Ricardo
         return (risk_by_asset, risk_by_sector, risk_by_sector_and_factor)

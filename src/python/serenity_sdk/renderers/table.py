@@ -11,6 +11,11 @@ from serenity_sdk.types.factors import RiskAttributionResult, Risk
 
 
 class FactorRiskTables:
+    """
+    Helper class that formats RiskAttributionResult objects as Pandas DataFrame objects
+    to ease tabular display in Jupyter notebooks.
+    """
+
     def __init__(self, result: RiskAttributionResult):
         self.result = result
 

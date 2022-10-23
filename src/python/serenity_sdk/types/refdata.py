@@ -54,9 +54,15 @@ class AssetMaster:
         """
         Mapping function that takes a set of raw positions in a given symbology and then converts them
         to Serenity's internal identifiers and creates a Portfolio that can then be used with our tools.
-        Note there are two 'special' symbologies, NATiVE and SERENITY. NATIVE uses the native blockchain
+        Note there are two 'special' symbologies, NATIVE and SERENITY. NATIVE uses the native blockchain
         symbol and SERENITY uses Serenity's own native symbology, e.g. BTC and tok.btc.bitcoin
         respectively. The rest correspond to the API's list of symbol authorities, e.g. COINGECKO.
+
+        :param positions: a raw mapping from symbol to weight, where negative weights indicate short positions
+        :param symbology: a name from the list of supported symbol authorities, e.g. `COINGECKO`, or
+            one of two special symbologies, NATIVE or SERENITY; NATIVE uses the native blockchain
+            symbol and SERENITY uses Serenity's own native symbology, e.g. `BTC` and `tok.btc.bitcoin`
+            respectively
         """
         asset_positions = {self.get_asset_id_by_symbol(symbol, symbology): qty for (symbol, qty) in positions.items()}
         return Portfolio(asset_positions)
@@ -64,6 +70,12 @@ class AssetMaster:
     def get_symbol_by_id(self, asset_id: UUID, symbology: str = 'NATIVE'):
         """
         Lookup helper that gets a particular symbol type for a given asset ID.
+
+        :param asset_id: Serenity's unique ID for this asset
+        :param symbology: a name from the list of supported symbol authorities, e.g. `COINGECKO`, or
+            one of two special symbologies, NATIVE or SERENITY; NATIVE uses the native blockchain
+            symbol and SERENITY uses Serenity's own native symbology, e.g. `BTC` and `tok.btc.bitcoin`
+            respectively
         """
         asset_id_symbols = self.asset_id_map.get(asset_id, None)
         if not asset_id_symbols:
@@ -78,6 +90,12 @@ class AssetMaster:
     def get_asset_id_by_symbol(self, symbol: str, symbology: str = 'NATIVE'):
         """
         Lookup helper that looks up asset ID by symbol based on a given symbology.
+
+        :param symbol: a known symbol for this asset, e.g. BTC or bitcoin
+        :param symbology: a name from the list of supported symbol authorities, e.g. `COINGECKO`, or
+            one of two special symbologies, NATIVE or SERENITY; NATIVE uses the native blockchain
+            symbol and SERENITY uses Serenity's own native symbology, e.g. `BTC` and `tok.btc.bitcoin`
+            respectively
         """
         symbology_symbols = self.symbol_map.get(symbology, None)
         if not symbology_symbols:

@@ -39,6 +39,8 @@ class AuthHeaders:
     def get_http_headers(self) -> Dict[AnyStr, AnyStr]:
         """
         Gets the current set of headers including latest Bearer token for authentication.
+
+        :return: a mapping between HTTP header and header value
         """
         return self.http_headers
 
@@ -55,6 +57,7 @@ def get_credential_user_app(config: ConnectionConfig) -> object:
     as part of setup you will be given the application's client ID and secret.
 
     :param config: Serenity API Management API configuration from `load_local_config()`
+    :return: the opaque credential object for Azure
     """
     return ClientSecretCredential(config.tenant_id,
                                   config.client_id,
