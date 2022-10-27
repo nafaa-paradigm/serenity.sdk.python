@@ -23,17 +23,10 @@ def convert_to_timeseries(result, bt_quantiles, breach_count_period=365):
         {q: extract_ts(result.results, lambda res: res.quantiles[i].var_absolute) for i, q in enumerate(bt_quantiles)})
     vars_rel_by_qs = pd.DataFrame(
         {q: extract_ts(result.results, lambda res: res.quantiles[i].var_relative) for i, q in enumerate(bt_quantiles)})
-    pnls_abs = extract_ts(result.breaches, lambda res: res.portfolio_loss_absolute, lambda res: res.breach_date)
-    pnls_rel = extract_ts(result.breaches, lambda res: res.portfolio_loss_relative, lambda res: res.breach_date)
 
-    # TODO: In the version as of now, the breach data covers only those with breaches.
-    # So, we re-index baselines & vars at the pnl indices.
-    # In future, this behavior should be addressed. Once address, the following code block
-    # can be removed.
-    baselines = baselines.loc[pnls_abs.index]
-    vars_abs_by_qs = vars_abs_by_qs.loc[pnls_abs.index]
-    vars_rel_by_qs = vars_rel_by_qs.loc[pnls_abs.index]
-    # up to here
+    # directly calculate the pnls
+    pnls_abs = baselines.diff().shift(-1)
+    pnls_rel = pnls_abs/baselines
 
     var_breaches = pd.DataFrame(
         {q: d * (vars_abs_by_qs[q] - (-pnls_abs)) < 0 for q, d in zip(bt_quantiles, directions)})
