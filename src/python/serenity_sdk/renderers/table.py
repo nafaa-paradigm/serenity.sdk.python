@@ -123,7 +123,7 @@ class FactorRiskTables:
                 'factor': sector_factor_exposure.factor,
                 'absoluteRisk': sector_factor_exposure.absolute_risk,
                 'relativeRisk': sector_factor_exposure.relative_risk,
-                'marignalRisk': sector_factor_exposure.marginal_risk,
+                'marginalRisk': sector_factor_exposure.marginal_risk,
                 'factorExposure': sector_factor_exposure.factor_exposure.factor_exposure,
                 'factorExposureBaseCcy': sector_factor_exposure.factor_exposure.factor_exposure_base_ccy
             }
