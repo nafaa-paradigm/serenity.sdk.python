@@ -72,16 +72,11 @@ class VaRBreach:
     """
 
     @staticmethod
-    def _parse(raw_json: Any, backcompat: bool = True, backcompat_quantile: float = None) -> VaRBreach:
+    def _parse(raw_json: Any) -> VaRBreach:
         breach_date = datetime.strptime(raw_json['breachDate'], STD_DATE_FMT)
         portfolio_loss_absolute = raw_json['portfolioLossAbsolute']
         portfolio_loss_relative = raw_json['portfolioLossRelative']
-        if backcompat:
-            var_absolute = raw_json['varLevelAbsolute']
-            var_relative = raw_json['varLevelRelative']
-            quantiles = [VaRQuantile(99, var_absolute, var_relative)]
-        else:
-            quantiles = [VaRQuantile._parse(quantile) for quantile in raw_json['quantiles']]
+        quantiles = [VaRQuantile._parse(quantile) for quantile in raw_json['quantiles']]
         return VaRBreach(breach_date, portfolio_loss_absolute, portfolio_loss_relative, quantiles)
 
 
@@ -122,15 +117,12 @@ class VaRAnalysisResult:
     """
 
     @staticmethod
-    def _parse(raw_json: Any, backcompat: bool = True) -> VaRAnalysisResult:
+    def _parse(raw_json: Any) -> VaRAnalysisResult:
         run_date = datetime.strptime(raw_json['runDate'], STD_DATE_FMT)
         baseline = raw_json['baseline']
         quantiles = [VaRQuantile._parse(quantile) for quantile in raw_json['quantiles']]
         excluded_assets = [UUID(asset_id) for asset_id in raw_json['excludedAssetIds']]
-        if backcompat:
-            warnings = []
-        else:
-            warnings = raw_json.get('warnings', [])
+        warnings = raw_json.get('warnings', [])
 
         return VaRAnalysisResult(run_date, baseline, quantiles, excluded_assets, warnings)
 
@@ -162,11 +154,8 @@ class VaRBacktestResult:
     """
 
     @staticmethod
-    def _parse(raw_json: Any, backcompat: bool = True, backcompat_quantile: float = None) -> VaRBacktestResult:
-        results = [VaRAnalysisResult._parse(result, backcompat) for result in raw_json['results']]
-        breaches = [VaRBreach._parse(breach, backcompat, backcompat_quantile) for breach in raw_json['breaches']]
-        if backcompat:
-            warnings = []
-        else:
-            warnings = raw_json['warnings']
+    def _parse(raw_json: Any) -> VaRBacktestResult:
+        results = [VaRAnalysisResult._parse(result) for result in raw_json['results']]
+        breaches = [VaRBreach._parse(breach) for breach in raw_json['breaches']]
+        warnings = raw_json['warnings']
         return VaRBacktestResult(results, breaches, warnings)

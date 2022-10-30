@@ -197,9 +197,6 @@ class RiskAttributionResult:
         self.absolute_risk_by_sector = {}
         self.relative_risk_by_sector = {}
 
-        # internal only: we do not yet return the necessary bySector attribute
-        # in any of the Risk Attribution API versions, and so taking out the
-        # public method calls to get at this and produce DataFrames until ready.
         self.absolute_risk_by_sector_and_factor = {}
         self.relative_risk_by_sector_and_factor = {}
         self.asset_sectors = {}
@@ -291,19 +288,9 @@ class RiskAttributionResult:
             self._parse_risk_contribution('relativeContributionRisk')
 
         # handle path-based sector breakdown for exposures, with backward compatibility V2/V3
-        sector_factor_exposure_json = self.raw_json.get('sectorFactorExposure', [])
         sector_factor_exposures_json = self.raw_json.get('sectorFactorExposures', [])
-        if sector_factor_exposures_json:
-            sector_factor_exposures = [SectorFactorExposure._parse(sector_exposure)
-                                       for sector_exposure in sector_factor_exposures_json]
-        else:
-            sector_factor_exposures = []
-            for sector_exposure in sector_factor_exposure_json:
-                for factor_exposure in sector_exposure['factorExposure']:
-                    sector_factor_exposures.append(
-                        SectorFactorExposure(factor_exposure['factor'], SectorPath(sector_exposure['sectorLevels']),
-                                             None, None, None, FactorExposureValue._parse(factor_exposure))
-                    )
+        sector_factor_exposures = [SectorFactorExposure._parse(sector_exposure)
+                                   for sector_exposure in sector_factor_exposures_json]
 
         self.sector_factor_exposures = defaultdict(list)
         for sector_factor_exposure in sector_factor_exposures:

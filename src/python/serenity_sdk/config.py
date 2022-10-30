@@ -59,60 +59,25 @@ class ConnectionConfig:
         self.user_application_id = config['userApplicationId']
         self.user_application_secret = config['userApplicationSecret']
 
-        # for V1, we need to construct the target URL from environment and region,
-        # while for V2, we are given the target URL
-        if schema_version == 1:
-            self.url = None
-            self.scope = None
+        # point to the correct installation for the client API
+        self.url = config['url']
+        self.scope = config['scope']
+        self.env = Environment[config['environment']]
 
-            # during transition only PRODUCTION still supports V1
-            self.env = Environment.PRODUCTION
-            self.region = Region.GLOBAL
-        else:
-            self.url = config['url']
-            self.scope = config['scope']
-            self.env = Environment[config['environment']]
-
-            # with V2 we don't actually need Region, so default it for now
-            self.region = Region.GLOBAL if self.env == Environment.PRODUCTION else Region.EASTUS
+        # with V2 we don't actually need Region, so default it for now
+        self.region = Region.GLOBAL if self.env == Environment.PRODUCTION else Region.EASTUS
 
     def get_scopes(self) -> List[str]:
         """
         Gets all of the OAuth scopes used for acquiring the access token
         """
-        if self.schema_version == 1:
-            return self._get_scopes_v1()
-        else:
-            return [self.scope]
+        return [self.scope]
 
     def get_url(self) -> str:
         """
         Gets the client-specific URL to use for all API requests
         """
-        if self.schema_version == 1:
-            return self._get_url_v1('https://serenity-rest')
-        else:
-            return self.url
-
-    def _get_scopes_v1(self) -> List[str]:
-        """
-        Helper function that returns the login scopes required to access the API given an environment
-        and a region. In general you do not need to call this directly.
-        """
-        return [
-            f"{self._get_url_v1('https://serenity-api')}/.default"
-        ]
-
-    def _get_url_v1(self, host: str) -> str:
-        """
-        Helper function that returns the url based on the Environment and Region provided.
-        """
-        if self.env.value:
-            host = f'{host}-{self.env.value}'
-        if self.region.value:
-            host = f'{host}-{self.region.value}'
-        host = f'{host}.cloudwall.network'
-        return host
+        return self.url
 
     @staticmethod
     def _validate_config_json(config: Any, config_path: str) -> int:
@@ -123,19 +88,14 @@ class ConnectionConfig:
         :param config_path: file path from which the JSON was loaded; for error messages
         :return: the schema version loaded (currently 1 or 2)
         """
-        required_keys = ['schemaVersion', 'tenantId', 'clientId', 'userApplicationId', 'userApplicationSecret']
-        required_extra_keys_v2 = ['url', 'scope']
+        required_keys = ['schemaVersion', 'tenantId', 'clientId', 'userApplicationId', 'userApplicationSecret',
+                         'url', 'scope', 'environment']
         if not all(key in config for key in required_keys):
             raise ValueError(f'{config_path} invalid. Required keys: {required_keys}; got: {list(config.keys())}')
         schema_version = config['schemaVersion']
-        if schema_version not in [1, 2]:
-            raise ValueError(f'At this time only schemaVersion 1 or 2 supported; '
+        if schema_version != 2:
+            raise ValueError(f'At this time only schemaVersion == 2 is supported; '
                              f'{config_path} is version {schema_version}')
-
-        if schema_version == 2:
-            if not all(key in config for key in required_extra_keys_v2):
-                raise ValueError(f'{config_path} invalid. Missing V2 keys: {required_extra_keys_v2}; '
-                                 f'got: {list(config.keys())}')
 
         return schema_version
 

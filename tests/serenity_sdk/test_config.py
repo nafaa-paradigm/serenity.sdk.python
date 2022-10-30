@@ -3,23 +3,6 @@ import os.path
 from serenity_sdk.config import Environment, Region, load_local_config
 
 
-def test_load_local_config_v1():
-    config_dir = os.path.dirname(__file__)
-    config = load_local_config('test_config_v1', config_dir=config_dir)
-
-    assert config.schema_version == 1
-    assert config.tenant_id == '...'
-    assert config.client_id == '...'
-    assert config.user_application_id == '...'
-    assert config.user_application_secret == '...'
-    assert config.url is None
-    assert config.scope is None
-    assert config.get_scopes()[0] == 'https://serenity-api.cloudwall.network/.default'
-    assert config.get_url() == 'https://serenity-rest.cloudwall.network'
-    assert config.env == Environment.PRODUCTION
-    assert config.region == Region.GLOBAL
-
-
 def test_load_local_config_v2_dev():
     config_dir = os.path.dirname(__file__)
     config = load_local_config('test_config_v2_dev', config_dir=config_dir)

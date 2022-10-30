@@ -459,8 +459,7 @@ class RiskApi(SerenityApi):
                     portfolio: Portfolio,
                     horizon_days: int = 1,
                     lookback_period: int = 365,
-                    quantiles: List[float] = [95, 97.5, 99],
-                    var_model: str = 'VAR_PARAMETRIC_NORMAL') -> VaRAnalysisResult:
+                    quantiles: List[float] = [95, 97.5, 99]) -> VaRAnalysisResult:
         """
         Uses a chosen model to compute Value at Risk (VaR) for a portfolio. Note: this API
         currently ignores CalculationContext.model_config_id, so if you want to use a
@@ -474,7 +473,6 @@ class RiskApi(SerenityApi):
         :param lookback_period: length of risk factor time series data used to calibrate VaR, measured in days
         :param quantiles: loss forecast quantiles used in VaR calculation; must be unique
             and in range 0 < quantile < 100
-        :param var_model: *DEPRECATED* old-style; use `modelConfigId` in :class:`CalculationContext`
         :return: a typed wrapper around the VaR calculation results
         """
         request = {
@@ -483,13 +481,12 @@ class RiskApi(SerenityApi):
             'markTime': ctx.mark_time.value,
             'horizonDays': horizon_days,
             'lookbackPeriod': lookback_period,
-            **self._create_var_model_params(ctx.model_config_id, var_model, lookback_period, None, quantiles)
+            **self._create_var_model_params(ctx.model_config_id, lookback_period, quantiles)
         }
         raw_json = self._call_api('/var/compute', {}, request)
-        backcompat = self._get_env() == Environment.PRODUCTION
-        result_json = raw_json if backcompat else raw_json['result']
-        result = VaRAnalysisResult._parse(result_json, backcompat=backcompat)
-        result.warnings = [] if backcompat else raw_json.get('warnings', [])
+        result_json = raw_json['result']
+        result = VaRAnalysisResult._parse(result_json)
+        result.warnings = raw_json.get('warnings', [])
         return result
 
     def compute_var_backtest(self, ctx: CalculationContext,
@@ -497,9 +494,7 @@ class RiskApi(SerenityApi):
                              start_date: date,
                              end_date: date,
                              lookback_period: int = 365,
-                             quantiles: List[float] = [95, 97.5, 99],
-                             quantile: float = 99,
-                             var_model: str = 'VAR_PARAMETRIC_NORMAL') -> VaRBacktestResult:
+                             quantiles: List[float] = [95, 97.5, 99]) -> VaRBacktestResult:
         """
         Performs a VaR backtest, a run of the VaR model for a given portfolio over a time period.
         The goal of the backtest to identify days where the losses exceeded the model prediction,
@@ -526,11 +521,10 @@ class RiskApi(SerenityApi):
             'startDate': start_date.strftime(STD_DATE_FMT),
             'endDate': end_date.strftime(STD_DATE_FMT),
             'markTime': ctx.mark_time.value,
-            **self._create_var_model_params(ctx.model_config_id, var_model, lookback_period, quantile, quantiles)
+            **self._create_var_model_params(ctx.model_config_id, lookback_period, quantiles)
         }
         raw_json = self._call_api('/var/backtest', {}, request)
-        return VaRBacktestResult._parse(raw_json, backcompat=(self._get_env() == Environment.PRODUCTION),
-                                        backcompat_quantile=quantile)
+        return VaRBacktestResult._parse(raw_json)
 
     def get_asset_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
         """
@@ -623,39 +617,23 @@ class RiskApi(SerenityApi):
         factors = {factor: RiskApi._to_portfolio(indexcomps) for (factor, indexcomps) in raw_json['factors'].items()}
         return factors
 
-    def _create_var_model_params(self, model_config_id: UUID, model_id: str, lookback_period: int,
-                                 quantile: float, quantiles: List[float]) -> Dict[AnyStr, Any]:
+    def _create_var_model_params(self, model_config_id: UUID, lookback_period: int,
+                                 quantiles: List[float]) -> Dict[AnyStr, Any]:
         """
         VaR model parameter conventions changed between the Ricardo and Martineau releases. This method
         takes care of rewriting both conventions to ensure backward compatiblity during the transition.
 
         :param model_config_id: the UUID for the VaR model selected
-        :param model_id: the legacy enum value for the VaR model to use
         :param lookback_period: the lookback period, which in Ricardo is in years, default 1, and in Martineau
             is in days, default 365
-        :param quantile: the single quantile parameter for backtest VaR, else None for compute VaR
         :param quantiles: the list of quantiles for compute VaR or, in dev & test only, for backtest VaR as well
         :return: a dictionary with the appropriate config keys based on environment for backward compatibility
         """
-        if self._get_env() == Environment.PRODUCTION:
-            params = {
-                'modelId': model_id,
-                'lookbackPeriod': (1 if lookback_period == 365 else lookback_period)
-            }
-            if quantile is not None:
-                # in production backtest VaR takes a single float quantile
-                params['quantile'] = quantile
-            else:
-                # in production compute VaR takes an array of quantiles
-                params['quantiles'] = quantiles
-        else:
-            params = {
-                'modelConfigId': str(model_config_id),
-                'lookbackPeriod': lookback_period,
-
-                # in dev and test, both backtest and compute VaR take an array of quantiles
-                'quantiles': quantiles
-            }
+        params = {
+            'modelConfigId': str(model_config_id),
+            'lookbackPeriod': lookback_period,
+            'quantiles': quantiles
+        }
         return params
 
     @staticmethod
