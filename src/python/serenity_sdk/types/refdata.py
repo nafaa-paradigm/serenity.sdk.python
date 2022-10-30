@@ -1,18 +1,8 @@
 from collections import defaultdict
-from enum import Enum
 from typing import Any, AnyStr, Dict, List
 from uuid import UUID
 
 from serenity_sdk.types.common import Portfolio
-
-
-class SectorTaxonomy(Enum):
-    """
-    Transition enum until the next release is deployed, supporting lookup via API of
-    sector taxonomy UUID's so you can use arbitrary taxonomies (including user-defined)
-    """
-    DACS = "DACS"
-    DATS = "DATS"
 
 
 class AssetMaster:

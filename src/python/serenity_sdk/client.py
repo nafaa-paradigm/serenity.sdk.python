@@ -15,7 +15,7 @@ from serenity_sdk.config import ConnectionConfig, Environment
 from serenity_sdk.types.common import STD_DATE_FMT, CalculationContext, Portfolio, PricingContext
 from serenity_sdk.types.factors import RiskAttributionResult
 from serenity_sdk.types.model import ModelMetadata
-from serenity_sdk.types.refdata import AssetMaster, SectorTaxonomy
+from serenity_sdk.types.refdata import AssetMaster
 from serenity_sdk.types.valuation import ValuationResult
 from serenity_sdk.types.var import VaRAnalysisResult, VaRBacktestResult
 
@@ -427,8 +427,7 @@ class RiskApi(SerenityApi):
 
     def compute_risk_attrib(self, ctx: CalculationContext,
                             portfolio: Portfolio,
-                            sector_taxonomy_id: UUID = None,
-                            sector_taxonomy: SectorTaxonomy = None) -> RiskAttributionResult:
+                            sector_taxonomy_id: UUID = None) -> RiskAttributionResult:
         """
         Given a portfolio, breaks down the volatility and variance of the portfolio in various
         slices, e.g. by asset, by sector & asset, by sector & factor, and by factor. These different
@@ -442,7 +441,6 @@ class RiskApi(SerenityApi):
         :param ctx: the common risk calculation parameters to use, e.g. as-of date or factor risk model ID
         :param portfolio: the portfolio on which to perform risk attribution
         :param sector_taxonomy_id: the unique ID of the sector taxonomy for pivoting, else DACS if None
-        :param sector_taxonomy: *DEPRECATED* sector taxonomy for pivoting; use `sector_taxonomy_id` instead
         :return: a typed wrapper around the risk attribution results
         """
         body_json = {
@@ -511,8 +509,6 @@ class RiskApi(SerenityApi):
         :param lookback_period: length of risk factor time series data used to calibrate VaR, measured in days
         :param quantiles: loss forecast quantiles used in VaR calculation; must be unique
             and in range 0 < quantile < 100
-        :param quantile: *DEPRECATED* old-style; use `quantiles` with a single value
-        :param var_model: *DEPRECATED* old-style; use `modelConfigId` in :class:`CalculationContext`
         :return: a typed wrapper around the VaR calculation results
         """
         request = {
