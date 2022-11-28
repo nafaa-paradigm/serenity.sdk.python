@@ -5,9 +5,9 @@ import pandas as pd
 
 from abc import ABC
 from bidict import bidict
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
-from typing import Any, AnyStr, Dict, List
+from typing import Any, AnyStr, Dict, List, Optional
 from uuid import UUID
 
 from serenity_sdk.auth import create_auth_headers, get_credential_user_app
@@ -18,7 +18,10 @@ from serenity_sdk.types.model import ModelMetadata
 from serenity_sdk.types.refdata import AssetMaster
 from serenity_sdk.types.valuation import ValuationResult
 from serenity_sdk.types.var import VaRAnalysisResult, VaRBacktestResult
-
+from serenity_types.pricing.derivatives.options.valuation import OptionValuationRequest, OptionValuationResult
+from serenity_types.pricing.derivatives.options.volsurface import (VolatilitySurfaceAvailability,
+                                                                   VolatilitySurfaceVersion)
+from serenity_types.pricing.derivatives.rates.yield_curve import YieldCurveAvailability, YieldCurveVersion
 
 SERENITY_API_VERSION = 'v1'
 
@@ -125,47 +128,6 @@ class APIPathMapper:
             Environment.PRODUCTION: {'aliases': self.path_aliases.inverse, 'unsupported': {}}
         }
 
-        # next we have the path configurations, which are always based on the latest path;
-        # you need to map from old to new to get the configuration
-        self.path_configs = {
-            # Refdata API
-            '/refdata/asset/summaries': {'call_type': CallType.GET},
-            '/refdata/asset/types': {'call_type': CallType.GET},
-            '/refdata/symbol/authorities': {'call_type': CallType.GET},
-            '/refdata/sector/taxonomies': {'call_type': CallType.GET},
-
-            # Model metadata API
-            '/catalog/model/modelclasses': {'call_type': CallType.GET},
-            '/catalog/model/models': {'call_type': CallType.GET},
-            '/catalog/model/modelconfigurations': {'call_type': CallType.GET},
-
-            # Risk API
-            '/risk/market/factor/asset_covariance': {'call_type': CallType.GET},
-            '/risk/market/factor/attribution': {'call_type': CallType.POST},
-            '/risk/market/factor/correlation': {'call_type': CallType.GET},
-            '/risk/market/factor/covariance': {'call_type': CallType.GET},
-            '/risk/market/factor/exposures': {'call_type': CallType.GET},
-            '/risk/market/factor/indexcomps': {'call_type': CallType.GET},
-            '/risk/market/factor/residual_covariance': {'call_type': CallType.GET},
-            '/risk/market/factor/returns': {'call_type': CallType.GET},
-
-            # VaR API
-            '/risk/var/compute': {'call_type': CallType.POST},
-            '/risk/var/backtest': {'call_type': CallType.POST},
-
-            # Valuation API
-            '/valuation/portfolio/compute': {'call_type': CallType.POST},
-        }
-
-    def get_call_type(self, latest_path: str) -> CallType:
-        """
-        For the given path (which may be a legacy path) get whether it is GET, POST, etc..
-
-        :param latest_path: the API path from the *latest* version of the API
-        """
-        call_type = self._get_path_config(latest_path)['call_type']
-        return call_type
-
     def get_api_path(self, input_path: str) -> str:
         """
         Given the new API path, return the corresponding path currently supported in production.
@@ -174,9 +136,6 @@ class APIPathMapper:
         :param input_path: the API path requested by the caller
         :return: the correct API path for the target environment
         """
-        # first make sure the path is supported
-        assert self._get_path_config(input_path) is not None
-
         # translate the path, or if no aliasing, keep the input path
         api_path = self._get_env_path_aliases().get(input_path, input_path)
 
@@ -192,25 +151,6 @@ class APIPathMapper:
         Gets all the old-to-new path mapping aliases.
         """
         return self.env_override_map[self.env]['aliases']
-
-    def _get_path_config(self, api_path: str) -> Dict[AnyStr, Any]:
-        """
-        Gets the configuration parameters given an API path.
-
-        :param api_path: the *latest* API path
-        """
-
-        # a bit tricky here: we always use new-style API paths to look up the path configuration
-        # to avoid duplication, and so we need to translate any old => new first
-        latest_path = self.path_aliases.inverse.get(api_path, api_path)
-
-        # at this point we have the new-style API path, and so this is expected to
-        # map to a valid configuration
-        path_config = self.path_configs.get(latest_path, None)
-        if not path_config:
-            raise UnknownOperationError(latest_path, self.env)
-        else:
-            return path_config
 
 
 class SerenityClient:
@@ -233,7 +173,8 @@ class SerenityClient:
         self.auth_headers = create_auth_headers(credential, scopes, user_app_id=config.user_application_id)
         self.api_mapper = APIPathMapper(self.env)
 
-    def call_api(self, api_group: str, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
+    def call_api(self, api_group: str, api_path: str, params: Dict[str, str] = {}, body_json: Any = None,
+                 call_type: CallType = CallType.GET) -> Any:
         """
         Low-level function that lets you call *any* Serenity REST API endpoint. For the call
         arguments you can pass a dictionary of request parameters or a JSON object, or both.
@@ -256,7 +197,6 @@ class SerenityClient:
         full_api_path = self.api_mapper.get_api_path(full_api_path)
         api_base_url = f'{host}/{self.version}{full_api_path}'
 
-        call_type = self.api_mapper.get_call_type(full_api_path)
         if call_type == CallType.POST:
             if params:
                 # this is a hack to help anyone with an "old-style" notebook
@@ -308,7 +248,8 @@ class SerenityApi(ABC):
         self.client = client
         self.api_group = api_group
 
-    def _call_api(self, api_path: str, params: Dict[str, str] = {}, body_json: Any = None) -> Any:
+    def _call_api(self, api_path: str, params: Dict[str, str] = {}, body_json: Any = None,
+                  call_type: CallType = CallType.GET) -> Any:
         """
         Helper method for derived classes that calls a target API in the supported API group.
 
@@ -317,7 +258,7 @@ class SerenityApi(ABC):
         :param body_json: a raw JSON object to POST or PATCH via the raw client
         :return: the raw JSON response object
         """
-        return self.client.call_api(self.api_group, api_path, params, body_json)
+        return self.client.call_api(self.api_group, api_path, params, body_json, call_type)
 
     def _get_env(self) -> Environment:
         """
@@ -449,7 +390,7 @@ class RiskApi(SerenityApi):
             'modelConfigId': str(ctx.model_config_id),
             'assetPositions': portfolio.to_asset_positions()
         }
-        risk_attribution_json = self._call_api('/market/factor/attribution', {}, body_json)
+        risk_attribution_json = self._call_api('/market/factor/attribution', {}, body_json, CallType.POST)
         result = RiskAttributionResult(risk_attribution_json)
         return result
 
@@ -481,7 +422,7 @@ class RiskApi(SerenityApi):
             'lookbackPeriod': lookback_period,
             **self._create_var_model_params(ctx.model_config_id, lookback_period, quantiles)
         }
-        raw_json = self._call_api('/var/compute', {}, request)
+        raw_json = self._call_api('/var/compute', {}, request, CallType.POST)
         result_json = raw_json['result']
         result = VaRAnalysisResult._parse(result_json)
         result.warnings = raw_json.get('warnings', [])
@@ -519,7 +460,7 @@ class RiskApi(SerenityApi):
             'markTime': ctx.mark_time.value,
             **self._create_var_model_params(ctx.model_config_id, lookback_period, quantiles)
         }
-        raw_json = self._call_api('/var/backtest', {}, request)
+        raw_json = self._call_api('/var/backtest', {}, request, CallType.POST)
         return VaRBacktestResult._parse(raw_json)
 
     def get_asset_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
@@ -717,8 +658,102 @@ class ValuationApi(SerenityApi):
                 'cashTreatment': ctx.cash_treatment.value
             }
         }
-        raw_json = self._call_api('/portfolio/compute', {}, request)
+        raw_json = self._call_api('/portfolio/compute', {}, request, CallType.POST)
         return ValuationResult._parse(raw_json)
+
+
+class PricerApi(SerenityApi):
+    def __init__(self, client: SerenityClient):
+        """
+        :param client: the raw client to delegate to when making API calls
+        """
+        super().__init__(client, 'pricing')
+
+    def compute_option_valuations(self, request: OptionValuationRequest) -> List[OptionValuationResult]:
+        """
+        Given a list of options, market data and market data override parameters, value all the options.
+
+        :param request: the set of options to value using the given market data and overrides
+        :return: ordered list of option valuations with PV, greeks, market data, etc.
+        """
+        request_json = request.json()
+        raw_json = self._call_api('/derivatives/options/valuation/compute', {}, request_json, CallType.POST)
+        return OptionValuationResult.parse_obj(raw_json['result'])
+
+    def get_volatility_surface_version(self, vol_surface_id: UUID,
+                                       as_of_time: Optional[datetime] = datetime.now()) -> VolatilitySurfaceVersion:
+        """
+        Gets the volsurface given a unique identifier for the parameter set and an as-of time to pick
+        up the most recent version as of that date/time. These JSON objects can be very large, so in general the
+        protocol should be to list what's available.
+
+        :param vol_surface_id: the specific combination of parameters (VolModel, etc.) that you want to retrieve
+        :return: the raw and interpolated VS as of the given time for the given set of parameters
+        """
+        params = {
+            'as_of_time': as_of_time
+        }
+        raw_json = self._call_api(f'/derivatives/options/volsurfaces/{str(vol_surface_id)}', params)
+        return VolatilitySurfaceVersion.parse_obj(raw_json['result'])
+
+    def get_available_volatility_surface_versions(self, vol_surface_id: Optional[UUID] = None,
+                                                  start_datetime: Optional[datetime] = None,
+                                                  end_datetime: Optional[datetime] = None) \
+            -> List[VolatilitySurfaceAvailability]:
+        """
+        Gets a list of generic volsurface descriptions and their available versions.
+
+        :param vol_surface_id: optional specific vol_surface_id to be retrieved; defaults to all available in the
+                                chosen date/time range :param start: optional start of date/time range (inclusive)
+                                to query for available surface parameterizations and their versions; defaults
+                                to UNIX epoch
+        :param end: optional end of date/time range (inclusive)to query for available surface parameterizations
+                    and their versions; defaults to now
+        """
+        params = {
+            'vol_surface_id': str(vol_surface_id) if vol_surface_id is not None else None,
+            'start_datetime': start_datetime,
+            'end_datetime': end_datetime
+        }
+        raw_json = self._call_api('/derivatives/options/volsurfaces', params)
+        return [VolatilitySurfaceAvailability.parse_obj(raw_avail) for raw_avail in raw_json['result']]
+
+    def get_yield_curve_version(self, yield_curve_id: UUID,
+                                as_of_time: Optional[datetime] = datetime.now()) -> YieldCurveVersion:
+        """
+        Gets the yield curve given a unique identifier. These JSON objects can be very large so
+        in general the protocol should be to list what's available for a time range and then retrieve each one.
+
+        :param yield_curve_id: the specific combination of parameters that you want to retrieve
+        :param as_of_time: the effective date/time for the version; defaults to latest
+        :return: the raw and interpolated YC as of the given time for the given set of parameters
+        """
+        params = {
+            'as_of_time': as_of_time
+        }
+        raw_json = self._call_api(f'/derivatives/rates/yield_curves/{str(yield_curve_id)}', params)
+        return YieldCurveVersion.parse_obj(raw_json['result'])
+
+    def get_available_yield_curve_versions(self, yield_curve_id: Optional[UUID] = None,
+                                           start_datetime: Optional[datetime] = None,
+                                           end_datetime: Optional[datetime] = None) -> List[YieldCurveAvailability]:
+        """
+        Gets a list of generic yield curve descriptions and their available versions.
+
+        :param yield_curve_id: optional specific yield_curve_id to be retrieved; defaults to all available
+                               in the chosen date/time range
+        :param start: optional start of date/time range (inclusive) to query for available curve parameterizations
+                      and their versions; defaults to UNIX epoch
+        :param end: optional end of date/time range (inclusive)to query for available curve parameterizations
+                      and their versions; defaults to now
+        """
+        params = {
+            'vol_surface_id': str(yield_curve_id) if yield_curve_id is not None else None,
+            'start_datetime': start_datetime,
+            'end_datetime': end_datetime
+        }
+        raw_json = self._call_api('/derivatives/rates/yield_curves', params)
+        return [YieldCurveAvailability.parse_obj(raw_avail) for raw_avail in raw_json['result']]
 
 
 class ModelApi(SerenityApi):
@@ -789,6 +824,7 @@ class SerenityApiProvider:
         self.refdata_api = RefdataApi(client)
         self.risk_api = RiskApi(client)
         self.valuation_api = ValuationApi(client)
+        self.pricer_api = PricerApi(client)
         self.model_api = ModelApi(client)
 
     def refdata(self) -> RefdataApi:
@@ -809,6 +845,12 @@ class SerenityApiProvider:
         Gets a typed wrapper for all the portfolio valuation API functions.
         """
         return self.valuation_api
+
+    def pricer(self) -> PricerApi:
+        """
+        Gets a typed wrapper for all the pricing API's for derivatives.
+        """
+        return self.pricer_api
 
     def model(self) -> ModelApi:
         """

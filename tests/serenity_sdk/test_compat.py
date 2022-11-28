@@ -1,12 +1,4 @@
-import pytest
-
-from serenity_sdk.client import (APIPathMapper, CallType, Environment,
-                                 UnknownOperationError)
-
-
-def test_lookup_call_type():
-    api_mapper = APIPathMapper()
-    assert api_mapper.get_call_type('/refdata/asset/types') == CallType.GET
+from serenity_sdk.client import (APIPathMapper, Environment)
 
 
 def test_lookup_api_path_no_remapping():
@@ -25,9 +17,3 @@ def test_lookup_api_path_with_remapping_dev_given_old():
     api_mapper = APIPathMapper(Environment.DEV)
     api_path = api_mapper.get_api_path('/risk/factor/covariance')
     assert api_path == '/risk/market/factor/covariance'
-
-
-def test_lookup_api_path_unknown():
-    api_mapper = APIPathMapper()
-    with pytest.raises(UnknownOperationError):
-        api_mapper.get_api_path('/foo/bar')
