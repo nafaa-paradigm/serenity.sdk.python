@@ -677,9 +677,9 @@ class PricerApi(SerenityApi):
         :param request: the set of options to value using the given market data and overrides
         :return: ordered list of option valuations with PV, greeks, market data, etc.
         """
-        request_json = json.loads(request.json(exclude_unset=True, by_alias=False))
+        request_json = json.loads(request.json(exclude_unset=True, by_alias=True))
         raw_json = self._call_api('/derivatives/options/valuation/compute', {}, request_json, CallType.POST)
-        return OptionValuationResult.parse_obj(raw_json['result'])
+        return [OptionValuationResult.parse_obj(result) for result in raw_json['result']]
 
     def get_volatility_surface_version(self, vol_surface_id: UUID,
                                        as_of_time: Optional[datetime] = datetime.now()) -> VolatilitySurfaceVersion:
