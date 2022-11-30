@@ -1,6 +1,7 @@
-import humps
+import json
 import requests
 
+import humps
 import pandas as pd
 
 from abc import ABC
@@ -676,7 +677,7 @@ class PricerApi(SerenityApi):
         :param request: the set of options to value using the given market data and overrides
         :return: ordered list of option valuations with PV, greeks, market data, etc.
         """
-        request_json = request.json()
+        request_json = json.loads(request.json(exclude_unset=True, by_alias=False))
         raw_json = self._call_api('/derivatives/options/valuation/compute', {}, request_json, CallType.POST)
         return OptionValuationResult.parse_obj(raw_json['result'])
 
