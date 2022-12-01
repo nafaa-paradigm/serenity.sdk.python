@@ -616,7 +616,7 @@ i18n = ["Babel (>=2.7)"]
 
 [[package]]
 name = "jsonschema"
-version = "4.17.1"
+version = "4.17.3"
 description = "An implementation of JSON Schema validation for Python"
 category = "dev"
 optional = false
@@ -1448,7 +1448,7 @@ win32 = ["pywin32"]
 
 [[package]]
 name = "serenity.types.python"
-version = "0.0.9"
+version = "0.0.11"
 description = "Python shared types for the Serenity digital asset risk API"
 category = "main"
 optional = false
@@ -1827,7 +1827,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<4"
-content-hash = "c3222888c6f30417f684f14b97dc45c58d82fe4ad41200f1ecb0c7ac1868b218"
+content-hash = "9165a0839a7869ac2faa58dfb77aa9d6bf01d313c90b971f9b50099da7744094"
 
 [metadata.files]
 alabaster = [
@@ -2214,8 +2214,8 @@ Jinja2 = [
     {file = "Jinja2-3.1.2.tar.gz", hash = "sha256:31351a702a408a9e7595a8fc6150fc3f43bb6bf7e319770cbc0db9df9437e852"},
 ]
 jsonschema = [
-    {file = "jsonschema-4.17.1-py3-none-any.whl", hash = "sha256:410ef23dcdbca4eaedc08b850079179883c2ed09378bd1f760d4af4aacfa28d7"},
-    {file = "jsonschema-4.17.1.tar.gz", hash = "sha256:05b2d22c83640cde0b7e0aa329ca7754fbd98ea66ad8ae24aa61328dfe057fa3"},
+    {file = "jsonschema-4.17.3-py3-none-any.whl", hash = "sha256:a870ad254da1a8ca84b6a2905cac29d265f805acc57af304784962a2aa6508f6"},
+    {file = "jsonschema-4.17.3.tar.gz", hash = "sha256:0f864437ab8b6076ba6707453ef8f98a6a0d512a80e93f8abdb676f737ecb60d"},
 ]
 jupyter-client = [
     {file = "jupyter_client-7.4.7-py3-none-any.whl", hash = "sha256:df56ae23b8e1da1b66f89dee1368e948b24a7f780fa822c5735187589fc4c157"},
@@ -2927,8 +2927,8 @@ Send2Trash = [
     {file = "Send2Trash-1.8.0.tar.gz", hash = "sha256:d2c24762fd3759860a0aff155e45871447ea58d2be6bdd39b5c8f966a0c99c2d"},
 ]
 "serenity.types.python" = [
-    {file = "serenity.types.python-0.0.9-py3-none-any.whl", hash = "sha256:d8b21293a5304d5c2cac9a28a023497667d1b9356e8ae8b4a7bc577173de064f"},
-    {file = "serenity.types.python-0.0.9.tar.gz", hash = "sha256:3dbf8e7fa196f690084789f3d8cfa21f5726882011116fb3757540a685e10407"},
+    {file = "serenity.types.python-0.0.11-py3-none-any.whl", hash = "sha256:35c9dc997203d0e3e8726ca9962a207c6497a059d9893b23348200eb92864d34"},
+    {file = "serenity.types.python-0.0.11.tar.gz", hash = "sha256:168cb9b0e890b16a05e63ce597d04cec0ec28fa0e8f02837e23d67bf5a175b11"},
 ]
 setuptools = [
     {file = "setuptools-65.6.3-py3-none-any.whl", hash = "sha256:57f6f22bde4e042978bcd50176fdb381d7c21a9efa4041202288d3737a0c6a54"},
