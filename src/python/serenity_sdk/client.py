@@ -705,11 +705,11 @@ class PricerApi(SerenityApi):
         Gets a list of generic volsurface descriptions and their available versions.
 
         :param vol_surface_id: optional specific vol_surface_id to be retrieved; defaults to all available in the
-                                chosen date/time range :param start: optional start of date/time range (inclusive)
-                                to query for available surface parameterizations and their versions; defaults
-                                to UNIX epoch
-        :param end: optional end of date/time range (inclusive)to query for available surface parameterizations
-                    and their versions; defaults to now
+                               chosen date/time range
+        :param end_datetime: optional end of date/time range (inclusive) to query for available surface
+                             parameterizations and their versions; defaults to UNIX epoch
+        :param end_datetime: optional end of date/time range (inclusive) to query for available surface
+                             parameterizations and their versions; defaults to now
         """
         params = {
             'vol_surface_id': str(vol_surface_id) if vol_surface_id is not None else None,
@@ -743,10 +743,10 @@ class PricerApi(SerenityApi):
 
         :param yield_curve_id: optional specific yield_curve_id to be retrieved; defaults to all available
                                in the chosen date/time range
-        :param start: optional start of date/time range (inclusive) to query for available curve parameterizations
-                      and their versions; defaults to UNIX epoch
-        :param end: optional end of date/time range (inclusive)to query for available curve parameterizations
-                      and their versions; defaults to now
+        :param start_datetime: optional start of date/time range (inclusive) to query for available curve
+                               parameterizations and their versions; defaults to UNIX epoch
+        :param end_datetime: optional end of date/time range (inclusive)to query for available curve
+                               parameterizations and their versions; defaults to now
         """
         params = {
             'vol_surface_id': str(yield_curve_id) if yield_curve_id is not None else None,
