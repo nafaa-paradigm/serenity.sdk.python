@@ -746,7 +746,7 @@ class PricerApi(SerenityApi):
         :param start_datetime: optional start of date/time range (inclusive) to query for available curve
                                parameterizations and their versions; defaults to UNIX epoch
         :param end_datetime: optional end of date/time range (inclusive)to query for available curve
-                               parameterizations and their versions; defaults to now
+                             parameterizations and their versions; defaults to now
         """
         params = {
             'vol_surface_id': str(yield_curve_id) if yield_curve_id is not None else None,
