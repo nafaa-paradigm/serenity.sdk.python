@@ -1,6 +1,6 @@
 import itertools
 
-from typing import AnyStr, Dict, List
+from typing import AnyStr, Dict, List, Tuple
 from uuid import UUID
 
 import pandas as pd
@@ -8,6 +8,7 @@ import pandas as pd
 from serenity_sdk.types.common import SectorPath
 from serenity_sdk.types.refdata import AssetMaster
 from serenity_sdk.types.factors import RiskAttributionResult, Risk
+from serenity_sdk.types.var import VaRBacktestResult
 
 
 class FactorRiskTables:
@@ -231,3 +232,118 @@ class FactorRiskTables:
             ndx = ndx + 1
         rows.append(cols)
         return index_cols
+
+
+class VaRBacktestTables:
+    """
+    Helper class that formats VaRBacktestResult objects as Pandas DataFrame objects
+    to ease tabular display in Jupyter notebooks.
+    """
+
+    def __init__(self, result: VaRBacktestResult, bt_quantiles, breach_count_period=365):
+        """
+        Parses out the result to create multiple Pandas DataFrames.
+
+        :param result: backtest result object
+        :param bt_quantiles: quantiles used in the backtest
+        :param breach_count_period: the period for breach analysis purposes
+        """
+        self.result = result
+        self.bt_quantiles = bt_quantiles
+        self.breach_count_period = breach_count_period
+
+        directions = [-1 if q < 50 else +1 for q in bt_quantiles]
+        self.baselines = VaRBacktestTables._extract_ts(result.results, lambda res: res.baseline)
+        self.vars_abs_by_qs = pd.DataFrame(
+            {q: VaRBacktestTables._extract_ts(result.results, lambda res: res.quantiles[i].var_absolute)
+             for i, q in enumerate(bt_quantiles)})
+        self.vars_rel_by_qs = pd.DataFrame(
+            {q: VaRBacktestTables._extract_ts(result.results, lambda res: res.quantiles[i].var_relative)
+             for i, q in enumerate(bt_quantiles)})
+
+        # directly calculate the pnls
+        self.pnls_abs = self.baselines.diff().shift(-1)
+        self.pnls_rel = self.pnls_abs/self.baselines
+
+        self.var_breaches = pd.DataFrame(
+            {q: d * (self.vars_abs_by_qs[q] - (-self.pnls_abs)) < 0 for q, d in zip(bt_quantiles, directions)})
+        self.rolling_breaches = self.var_breaches.rolling(window=breach_count_period).sum()
+
+    def get_baselines(self):
+        """
+        :return: a Series mapping run_date to baseline PV for each day in the backtest.
+        """
+        return self.baselines
+
+    def get_absolute_var_by_quantiles(self):
+        """
+        :return: a DataFrame with the absolute ($) VaR for each of the computed quantiles.
+        """
+        return self.vars_abs_by_qs
+
+    def get_relative_var_by_quantiles(self):
+        """
+        :return: a DataFrame with the relative (%) VaR for each of the computed quantiles.
+        """
+        return self.vars_rel_by_qs
+
+    def get_absolute_pnl(self):
+        """
+        :return: a Series mapping run_date to absolute ($) PnL for each day in the backtest.
+        """
+        return self.pnls_abs
+
+    def get_relative_pnl(self):
+        """
+        :return: a Series mapping run_date to relative (%) PnL for each day in the backtest.
+        """
+        return self.pnls_rel
+
+    def get_var_breaches(self):
+        """
+        :return: a DataFrame with the VaR breach dates and values for each breach in the backtest.
+        """
+        return self.var_breaches
+
+    def get_rolling_breaches(self):
+        """
+        :return: a DataFrame with the rolling number of breaches across breach_count_period.
+        """
+        return self.rolling_breaches
+
+    def get_breaches_summary(self, quantile: float = 99) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        :param quantile: the VaR quantile to report on in this summary
+        :return: a DataFrame with each breach and the corresponding VaR and PnL
+        """
+        run_date_col = 'Run Date'
+        base_line_col = 'Baseline ($)'
+        var_col = f'{quantile}% VaR ($)'
+        var_rel_col = f'{quantile}% VaR (Relative)'
+        pnl_col = 'P&L'
+        breach_col = 'Breach'
+        backtest_df = pd.DataFrame({
+            run_date_col: pd.to_datetime(self.baselines.index),
+            base_line_col: self.baselines,
+            var_col: self.vars_abs_by_qs[quantile],
+            var_rel_col: self.vars_rel_by_qs[quantile],
+            pnl_col: self.pnls_abs,
+            breach_col: self.var_breaches[quantile]
+        }).set_index(run_date_col)
+
+        loss_fmt = lambda val: f'${val:,.2f}' if val >= 0 else f'(${abs(val):,.2f})'
+        pct_fmt = lambda val: f'({abs(val):,.1%})' if val < 0 else f'{abs(val):,.1%}'
+
+        red_blue_formatter = lambda val: 'color: blue' if val > 0 else 'color: red'
+        breaches_df = backtest_df[backtest_df[breach_col]].head().style.format({
+            base_line_col: loss_fmt,
+            var_col: loss_fmt,
+            var_rel_col: pct_fmt,
+            pnl_col: loss_fmt
+        }).applymap(red_blue_formatter, subset=[pnl_col])
+
+        return breaches_df
+
+    @staticmethod
+    def _extract_ts(arr, func_value, func_index=lambda res: res.run_date):
+        return pd.Series({func_index(thing): func_value(thing) for thing in arr})
