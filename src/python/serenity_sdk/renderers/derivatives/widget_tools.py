@@ -90,6 +90,10 @@ class OptionChooser:
             description='Type'
         )
 
+        self.cols_widgets = ['linked_asset_native_symbol', 'expiry_datetime', 'strike_price', 'option_type']
+        self.list_widgets = [self.widget_linked_asset_symbol,
+                             self.widget_expiry, self.widget_strike, self.widget_option_type]
+
         self.widget_linked_asset_symbol.observe(self.__widget_linked_asset_symbol_changed, names='value')
         self.widget_expiry.observe(self.__widget_expiry_changed, names='value')
         self.widget_strike.observe(self.__widget_strike_changed, names='value')
@@ -97,33 +101,35 @@ class OptionChooser:
         # set the initial symbol
         self.widget_linked_asset_symbol.value = linked_asset_symbols[0]
         self.widget_expiry.value = self.widget_expiry.options[-1]
+
+    def __set_mid_strike(self):
         num_strikes = len(self.widget_strike.options)
         self.widget_strike.value = self.widget_strike.options[num_strikes//2]
 
     def __match(self, level=4):
-        cols = ['linked_asset_native_symbol', 'expiry_datetime', 'strike_price', 'option_type']
-        wdgts = [self.widget_linked_asset_symbol, self.widget_expiry, self.widget_strike, self.widget_option_type]
 
         df = self.data
         for i in range(level):
-            df = df[df[cols[i]] == wdgts[i].value].copy()
+            df = df[df[self.cols_widgets[i]] == self.list_widgets[i].value].copy()
         return df
+
+    def __update_widgets(self, level):
+
+        for i in range(level+1, len(self.cols_widgets)):
+            df = self.__match(i)
+            self.list_widgets[i].options = list(np.sort(df[self.cols_widgets[i]].unique()))
 
     def __widget_linked_asset_symbol_changed(self, wb):
 
-        df = self.__match(1)
-        expiries = list(np.sort(df['expiry_datetime'].unique()))
-        self.widget_expiry.options = expiries
+        self.__update_widgets(0)
+        self.__set_mid_strike()
 
     def __widget_expiry_changed(self, wb):
-
-        df = self.__match(2)
-        self.widget_strike.options = list(np.sort(df['strike_price'].unique()))
+        self.__update_widgets(1)
+        self.__set_mid_strike()
 
     def __widget_strike_changed(self, wb):
-
-        df = self.__match(3)
-        self.widget_option_type.options = list(np.sort(df['option_type'].unique()))
+        self.__update_widgets(2)
 
     def get_widget_to_display(self):
         return widgets.VBox([self.widget_linked_asset_symbol, self.widget_expiry,

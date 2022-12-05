@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 import pandas as pd
 
 
@@ -27,6 +27,19 @@ def convert_object_list_to_df(obj_list: List[object], no_underscores=True) -> pd
     """
 
     df = pd.DataFrame([_get_obj_in_kw(obj, no_underscores) for obj in obj_list])
+    return df
+
+
+def convert_object_dict_to_df(obj_dict: Dict[Any, object], no_underscores=True) -> pd.DataFrame:
+    """
+    to convert a list of object into a pandas' DataFrame tabular form
+
+    :param obj_dict: a dictionary of objects
+    :param no_underscores: whether to exclude the variabes starting with '_', defaults to True
+    :return: pd.DataFrame
+    """
+
+    df = pd.DataFrame({k: _get_obj_in_kw(obj, no_underscores) for k, obj in obj_dict.items()})
     return df
 
 

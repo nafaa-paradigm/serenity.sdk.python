@@ -48,10 +48,10 @@ class YieldCurveTablePlot:
         df = self.raw_pts
         x = df['duration'].to_numpy()
         y = df['mark_price_future'].to_numpy()
-        ax_fut.plot(x, y, '.:', ms=12, label='future price')
+        ax_fut.plot(x, y, '.:', ms=12, label='mark future price')
 
         y = df['mark_price_spot'].to_numpy()
-        ax_fut.plot(x, y, ':', label='spot price')
+        ax_fut.plot(x, y, ':', label='mark price spot')
 
         ax_fut.set_ylabel('futures price')
         ax_fut.legend()
