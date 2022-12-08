@@ -1,22 +1,14 @@
-# flake8: noqa
-
-import datetime
-import pandas as pd
-
 import ipywidgets as widgets
 
-from ipywidgets import Button, HBox, Output, Text, VBox
 from IPython.display import clear_output, display
 
 from serenity_sdk.client import SerenityApiProvider, SerenityClient
-from serenity_sdk.config import Environment, Region, load_local_config
+from serenity_sdk.config import load_local_config
 
 
 class ConnectWidget:
 
-    def __init__(
-            self, config_id: str = None):
-
+    def __init__(self, config_id: str = None):
         self.widget_api_config = widgets.Text(description='API Config:')
         self.widget_connect = widgets.Button(description='Connect',
                                              disabled=False,
@@ -55,12 +47,3 @@ class ConnectWidget:
         with (self.widget_out):
             clear_output()
             print(f'Connecting to {config_id}: env={client.env}, URL={client.config.url}')
-
-
-# connect.on_click(on_connect)
-
-# hbox = HBox([api_config])
-# vbox = VBox([hbox, connect])
-
-# display(vbox)
-# display(out)

@@ -107,3 +107,6 @@ venv.bak/
 # other junk
 **/.ignoreme
 .VSCodeCounter/
+
+# user local environment
+.env

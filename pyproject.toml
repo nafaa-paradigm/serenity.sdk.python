@@ -20,7 +20,7 @@ python = ">=3.8,<4"
 requests = "^2.28.1"
 seaborn = "^0.12.0"
 scipy = "^1.9.2"
-serenity-types-python = "^0.0.11"
+serenity-types-python = ">=0.0.18,<1.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^5.0.4"

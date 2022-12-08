@@ -62,8 +62,8 @@ class SerenityError(Exception):
     """
     Generic error when the API fails, e.g. due to body parsing error on POST
     """
-    def __init__(self, detail: Any):
-        super().__init__(f'Generic API error: {detail}')
+    def __init__(self, detail: Any, request_json: Any = None):
+        super().__init__(f'Generic API error: {detail}; request body: {json.dumps(request_json, indent=4)}')
 
 
 class UnknownOperationError(Exception):
@@ -219,19 +219,19 @@ class SerenityClient:
         else:
             raise ValueError(f'{full_api_path} call type is {call_type}, which is not yet supported')
 
-        return SerenityClient._check_response(response_json)
+        return SerenityClient._check_response(body_json, response_json)
 
     @staticmethod
-    def _check_response(response_json: Any):
+    def _check_response(body_json: Any, response_json: Any):
         """
         Helper function that checks for various kinds of error responses and raises exceptions.
 
         :param response_json: the raw server response
         """
         if 'detail' in response_json:
-            raise SerenityError(response_json['detail'])
+            raise SerenityError(response_json['detail'], body_json)
         elif 'message' in response_json:
-            raise SerenityError(response_json['message'])
+            raise SerenityError(response_json['message'], body_json)
         else:
             return response_json
 
