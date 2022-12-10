@@ -37,13 +37,18 @@ class ConnectWidget:
             raise ValueError("'api' is not yet set.")
         return self.api
 
-    def connect_button_clicked(self, button):
+    def get_client(self) -> SerenityClient:
+        if self.client is None:
+            raise ValueError("'client' is not yet set.")
+        return self.client
 
+    def connect_button_clicked(self, button):
         config_id = self.widget_api_config.value
         config = load_local_config(config_id)
-        client = SerenityClient(config)
-        self.api = SerenityApiProvider(client)
+        self.client = SerenityClient(config)
+        self.api = SerenityApiProvider(self.client)
 
         with (self.widget_out):
             clear_output()
-            print(f'Connecting to {config_id}: env={client.env}, URL={client.config.url}')
+            print(f'Connecting to {config_id}: env={self.client.env}, '
+                  f'URL={self.client.config.url}')

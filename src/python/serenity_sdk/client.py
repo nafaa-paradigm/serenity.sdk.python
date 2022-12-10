@@ -1,7 +1,7 @@
 import json
 import requests
 
-import humps
+import humps.camel
 import pandas as pd
 
 from abc import ABC
@@ -206,7 +206,7 @@ class SerenityClient:
                 # version of the backend they get merged into a single JSON input
                 body_json_new = {}
                 for key, value in params.items():
-                    body_json_new[humps.camelize(key)] = value
+                    body_json_new[humps.camel.case(key)] = value
                 body_json_new['portfolio'] = body_json
                 body_json = body_json_new
                 params = {}
