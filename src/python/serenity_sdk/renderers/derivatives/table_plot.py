@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from serenity_types.pricing.derivatives.rates.yield_curve import YieldCurveVersion
 from serenity_types.pricing.derivatives.options.volsurface import VolatilitySurfaceVersion, StrikeType
-from serenity_types.pricing.derivatives.options.valuation import OptionValuationRequest, OptionValuation
+from serenity_types.pricing.derivatives.options.valuation import OptionValuation, OptionValuationResult
 from serenity_sdk.analytics.options import svi_vol
 from .converters import convert_object_list_to_df
 
@@ -155,7 +155,7 @@ class VolatilitySurfaceTablePlot:
 
 
 class OptionValuationResultTablePlot:
-    def __init__(self, val_results: List[OptionValuationRequest],
+    def __init__(self, val_results: List[OptionValuationResult],
                  val_inputs: Dict[str, OptionValuation]):
 
         tag2id = {tag: ov.option_valuation_id for tag, ov in val_inputs.items()}
@@ -169,7 +169,4 @@ class OptionValuationResultTablePlot:
         results_table.columns = res_tags
         results_table = results_table[tag2id.keys()].copy()
 
-        rates_table = pd.DataFrame(results_table.loc['rates'].to_dict())
-        rates_table.index = ['rate: ' + str(i) for i in rates_table.index.values]
-
-        self.results_table = pd.concat([results_table, rates_table])
+        self.results_table = results_table

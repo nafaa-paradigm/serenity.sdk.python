@@ -26,7 +26,7 @@ class VersionTimeChooser:
         self.widget_as_of_time = widgets.Dropdown(
             options=[],
             disabled=False,
-            description='as-of Time')
+            description='As-of Time')
         self.id_selected = None
         self.widget_name.observe(self.__name_changed, names='value')
 
