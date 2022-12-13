@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from serenity_types.pricing.derivatives.rates.yield_curve import YieldCurveVersion
 from serenity_types.pricing.derivatives.options.volsurface import VolatilitySurfaceVersion, StrikeType
 from serenity_types.pricing.derivatives.options.valuation import OptionValuation, OptionValuationResult
-from serenity_sdk.analytics.options import svi_vol
 from .converters import convert_object_list_to_df
+from .utils import svi_vol
 
 
 class YieldCurveTablePlot:
@@ -20,7 +20,12 @@ class YieldCurveTablePlot:
         self.yc = yc
         # convert raw data into df
         raw_pts = convert_object_list_to_df(yc.raw.points)
-        raw_pts[['mark_price_spot', 'mark_price_future']] = raw_pts['mark_prices'].tolist()
+        if raw_pts['mark_prices'].iloc[0] is None:
+            self.with_mark_prices = False
+        else:
+            self.with_mark_prices = True
+            raw_pts[['mark_price_spot', 'mark_price_future']] = raw_pts['mark_prices'].tolist()
+
         self.raw_pts: pd.DataFrame = raw_pts
 
         # convert interpolated data into df
@@ -32,11 +37,68 @@ class YieldCurveTablePlot:
         })
         self.interpolated_curve = crv_df
 
-    def plot(self, figsize=(14, 12)):
+    def plot(self, figsize_x=14):
         """
-        plot
+        plot yield curves.
+        (1) spot & future price term structures (futures-implied curves only)
+        (2) rate term structure
+        (3) discount factor term structure - in log-space
+        :param figsize_x: _description_, defaults to 14
+        """
 
-        :param figsize: the size of the fig size across all subplots, defaults to (14, 12)
+        if self.with_mark_prices:
+            return self.plot_with_mark_prices(figsize=(figsize_x, figsize_x*12/14))
+        else:
+            return self.plot_without_mark_prices(figsize=(figsize_x, figsize_x*8/14))
+
+    def plot_without_mark_prices(self, figsize):
+        """
+        plot_without_mark_prices
+
+        :param figsize: the size of the fig size across all subplots
+        :return: fig & axs
+        """
+        fig, axs = plt.subplots(2, 1, figsize=figsize)
+
+        ax_proj = axs[0]
+        ax_log_df = axs[1]
+
+        # proj & log_df
+        df = self.raw_pts
+        x = df['duration'].to_numpy()
+        y = df['rate'].to_numpy()
+        d = df['discount_factor'].to_numpy()
+        ax_proj.plot(x, y, '.:', ms=12, lw=2, label='raw')
+        ax_log_df.plot(x, np.log(d), '.:', ms=12, lw=2, label='raw')
+
+        df = self.interpolated_curve
+        x = df['duration'].to_numpy()
+        y = df['rate'].to_numpy()
+        d = df['discount_factor'].to_numpy()
+        ax_proj.plot(x, y, 'x-', ms=6, label='interpolated')
+        ax_log_df.plot(x, np.log(d), 'x-', ms=6, label='interpolated')
+
+        ax_proj.set_ylabel('rate')
+        ax_log_df.set_ylabel('log(discount factor)')
+        ax_proj.legend()
+        ax_log_df.legend()
+        ax_log_df.set_xlabel('time to expiries')
+
+        ax_proj.grid()
+        ax_log_df.grid()
+
+        ax_log_df.sharex(ax_proj)
+        name = self.yc.interpolated.definition.display_name
+        as_of_time = self.yc.as_of_time.strftime('%Y-%m-%d %H:%M:%S')
+        ax_proj.set_title(f'{name} as of {as_of_time}')
+
+        return fig, axs
+
+    def plot_with_mark_prices(self, figsize):
+        """
+        plot_with_mark_prices
+
+        :param figsize: the size of the fig size across all subplots
         :return: fig & axs
         """
         fig, axs = plt.subplots(3, 1, figsize=figsize)
@@ -55,6 +117,7 @@ class YieldCurveTablePlot:
 
         ax_fut.set_ylabel('futures price')
         ax_fut.legend()
+        ax_fut.grid()
 
         # proj & log_df
         df = self.raw_pts
@@ -76,6 +139,9 @@ class YieldCurveTablePlot:
         ax_proj.legend()
         ax_log_df.legend()
         ax_log_df.set_xlabel('time to expiries')
+
+        ax_proj.grid()
+        ax_log_df.grid()
 
         ax_log_df.sharex(ax_fut)
         ax_proj.sharex(ax_fut)
