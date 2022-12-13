@@ -464,7 +464,8 @@ class RiskApi(SerenityApi):
         raw_json = self._call_api('/var/backtest', {}, request, CallType.POST)
         return VaRBacktestResult._parse(raw_json)
 
-    def get_asset_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
+    def get_asset_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster,
+                                    portfolio: Optional[Portfolio] = None) -> pd.DataFrame:
         """
         Gets the asset covariance matrix with asset ID's translated to native symbols, as a DataFrame.
 
@@ -473,9 +474,10 @@ class RiskApi(SerenityApi):
         """
         params = RiskApi._create_get_params(ctx)
         raw_json = self._call_api('/market/factor/asset_covariance', params)
-        return RiskApi._asset_matrix_to_dataframe(raw_json['matrix'], asset_master)
+        return RiskApi._asset_matrix_to_dataframe(raw_json['matrix'], asset_master, portfolio)
 
-    def get_asset_residual_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
+    def get_asset_residual_covariance_matrix(self, ctx: CalculationContext, asset_master: AssetMaster,
+                                             portfolio: Optional[Portfolio] = None) -> pd.DataFrame:
         """
         Gets the asset residual covariance matrix with asset ID's translated to native symbols, as a DataFrame.
 
@@ -483,10 +485,12 @@ class RiskApi(SerenityApi):
         :return: a DataFrame pivoted by `assetId1` and `assetId2` with the asset residual `value` as a column
         """
         params = RiskApi._create_get_params(ctx)
+        ids_dict = portfolio.get_assets() if portfolio else {}
         raw_json = self._call_api('/market/factor/residual_covariance', params)
         rows = [{'assetId': element['assetId1'],
                  'symbol': asset_master.get_symbol_by_id(UUID(element['assetId1'])),
-                 'value': element['value']} for element in raw_json['matrix']]
+                 'value': element['value']} for element in raw_json['matrix']
+                if (len(ids_dict) == 0) or UUID(element['assetId1']) in ids_dict.keys()]
         return pd.DataFrame(rows)
 
     def get_factor_correlation_matrix(self, ctx: CalculationContext) -> pd.DataFrame:
@@ -512,11 +516,14 @@ class RiskApi(SerenityApi):
         raw_json = self._call_api('/market/factor/covariance', params)
         return RiskApi._factor_matrix_to_dataframe(raw_json['matrix'])
 
-    def get_asset_factor_exposures(self, ctx: CalculationContext, asset_master: AssetMaster) -> pd.DataFrame:
+    def get_asset_factor_exposures(self, ctx: CalculationContext, asset_master: AssetMaster,
+                                   portfolio: Optional[Portfolio] = None) -> pd.DataFrame:
         """
         Gets the factor exposures by assets as a DataFrame.
 
         :param ctx: the common risk calculation parameters to use, specifically the as-of date and model ID in this case
+        :param asset_master: an AssetMaster to use to resolve UUID to native symbols
+        :param portfolio: optional Portfolio used to subset the matrix to just assets in the portfolio
         :return: a DataFrame pivoted by `assetId` and `factor` with the exposure `value` as a column
         """
         def map_asset_id(asset_id: str):
@@ -525,6 +532,11 @@ class RiskApi(SerenityApi):
         params = RiskApi._create_get_params(ctx)
         raw_json = self._call_api('/market/factor/exposures', params)
         factor_exposures = pd.DataFrame.from_dict(raw_json['matrix'])
+        if portfolio:
+            ids_dict = portfolio.get_assets()
+            pf_ids = [str(asset_id) for asset_id in ids_dict.keys()]
+            factor_exposures = factor_exposures[factor_exposures['assetId'].isin(pf_ids)]
+
         factor_exposures = factor_exposures.pivot(index='assetId', columns='factor', values='value')
         factor_exposures.set_index(factor_exposures.index.map(map_asset_id), inplace=True)
 
@@ -575,18 +587,25 @@ class RiskApi(SerenityApi):
         return params
 
     @staticmethod
-    def _asset_matrix_to_dataframe(matrix_json: Any, asset_master: AssetMaster) -> pd.DataFrame:
+    def _asset_matrix_to_dataframe(matrix_json: Any, asset_master: AssetMaster,
+                                   portfolio: Optional[Portfolio] = None) -> pd.DataFrame:
         """
         Converts an asset matrix (asset pairs and values) into a simple DataFrame
 
         :param matrix_json: the raw matrix output from the API
         :param asset_master: a loaded AssetMaster to convert UUID to symbols
+        :param portfolio: an optional portfolio to use to subset the matrix
         :return: a DataFrame pivoted by `assetId1` and `assetId2` with `value` columns
         """
         def map_asset_id(asset_id: str):
             return asset_master.get_symbol_by_id(UUID(asset_id))
 
         df = pd.DataFrame.from_dict(matrix_json).dropna()
+        if portfolio:
+            ids_dict = portfolio.get_assets()
+            pf_ids = [str(asset_id) for asset_id in ids_dict.keys()]
+            df = df[df['assetId1'].isin(pf_ids) &
+                    df['assetId2'].isin(pf_ids)]
         df = df.pivot(index='assetId1', columns='assetId2', values='value')
         df.set_index(df.index.map(map_asset_id), inplace=True)
         df.columns = df.columns.map(map_asset_id)
