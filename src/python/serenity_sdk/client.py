@@ -23,6 +23,10 @@ from serenity_types.pricing.derivatives.options.valuation import OptionValuation
 from serenity_types.pricing.derivatives.options.volsurface import (VolatilitySurfaceAvailability,
                                                                    VolatilitySurfaceVersion)
 from serenity_types.pricing.derivatives.rates.yield_curve import YieldCurveAvailability, YieldCurveVersion
+from serenity_types.refdata.currency import Currency
+from serenity_types.refdata.futures import Future
+from serenity_types.refdata.options import ListedOption
+from serenity_types.refdata.token import TokenAsset
 
 SERENITY_API_VERSION = 'v1'
 
@@ -774,6 +778,63 @@ class PricerApi(SerenityApi):
         }
         raw_json = self._call_api('/derivatives/rates/yield_curves', params)
         return [YieldCurveAvailability.parse_obj(raw_avail) for raw_avail in raw_json['result']]
+
+    def get_supported_currencies(self, as_of_date: Optional[date] = None) -> List[Currency]:
+        """
+        Gets a list of currencies that can be used for quote asset and base currency; currently USD only.
+
+        :param as_of_date: optional date to use when loading reference data; defaults to latest, from cache
+        """
+        PricerApi._validate_as_of_date_not_supported(as_of_date)
+        raw_json = self._call_api('/derivatives/refdata/currencies', {})
+        return [Currency.parse_obj(raw_avail) for raw_avail in raw_json['result']]
+
+    def get_supported_futures(self, as_of_date: Optional[date] = None,
+                              underlier_asset_id: Optional[UUID] = None) -> List[Future]:
+        """
+        Gets a list of active futures that may be referenced in projection curve points;
+        currently Deribit BTC and ETH futures only.
+
+        :param as_of_date: optional date to use when loading reference data; defaults to latest, from cache
+        :param underlier_asset_id: optional filter to limit to futures on the given underlier, defaults to all
+        """
+        params = {}
+        if underlier_asset_id:
+            params['underlier_asset_id'] = underlier_asset_id
+        raw_json = self._call_api('/derivatives/refdata/futures', params)
+        return [Future.parse_obj(raw_avail) for raw_avail in raw_json['result']]
+
+    def get_supported_options(self, as_of_date: Optional[date] = None,
+                              underlier_asset_id: Optional[UUID] = None) -> List[ListedOption]:
+        """
+        Gets a list of active listed options that can be priced using the API;
+        currently only Deribit BTC and ETH options.
+
+        :param as_of_date: optional date to use when loading reference data; defaults to latest, from cache
+        :param underlier_asset_id: optional filter to limit to options on the given underlier, defaults to all
+        """
+        PricerApi._validate_as_of_date_not_supported(as_of_date)
+        params = {}
+        if underlier_asset_id:
+            params['underlier_asset_id'] = underlier_asset_id
+        raw_json = self._call_api('/derivatives/refdata/options', params)
+        return [ListedOption.parse_obj(raw_avail) for raw_avail in raw_json['result']]
+
+    def get_supported_underliers(self, as_of_date: Optional[date] = None) -> List[TokenAsset]:
+        """
+        Gets all the underlying tokens supported by the system for derivatives pricing (currently only BTC and ETH).
+
+        :param as_of_date: optional date to use when loading reference data; defaults to latest, from cache
+        """
+        PricerApi._validate_as_of_date_not_supported(as_of_date)
+        raw_json = self._call_api('/derivatives/refdata/underliers', {})
+        return [TokenAsset.parse_obj(raw_avail) for raw_avail in raw_json['result']]
+
+    @staticmethod
+    def _validate_as_of_date_not_supported(as_of_date: Optional[date]):
+        if as_of_date:
+            raise ValueError("as_of_date is not yet supported in the Derivatives Refdata API; "
+                             "historical support expected Q1'23")
 
 
 class ModelApi(SerenityApi):
