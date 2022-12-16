@@ -1,10 +1,15 @@
 import ipywidgets as widgets
+from typing import Optional
 import numpy as np
 import pandas as pd
+from datetime import datetime
+from serenity_sdk.client import SerenityApiProvider
+from .reference_data import get_predefined_option_infos
 
 
 class VersionTimeChooser:
     def __init__(self, versions: list, id_key: str):
+
         self.versions = versions
         self.id_key = id_key
         self.name_to_id = {v.definition.display_name: getattr(v.definition, id_key) for v in versions}
@@ -50,26 +55,54 @@ class VersionTimeChooser:
 
 
 class YieldCurveVersionTimeChooser(VersionTimeChooser):
-    def __init__(self, versions):
+    def __init__(self,
+                 api: Optional[SerenityApiProvider] = None,
+                 start_datetime: Optional[datetime] = None,
+                 end_datetime: Optional[datetime] = None,
+                 versions: Optional[list] = None):
+
+        if api is not None:
+            versions = api.pricer().get_available_yield_curve_versions(
+                start_datetime=start_datetime, end_datetime=end_datetime)
+        else:
+            versions = versions
+
         super().__init__(versions, 'yield_curve_id')
 
 
 class VolatilitySurfaceVersionTimeChooser(VersionTimeChooser):
-    def __init__(self, versions):
+    def __init__(self, api: Optional[SerenityApiProvider] = None,
+                 start_datetime: Optional[datetime] = None,
+                 end_datetime: Optional[datetime] = None,
+                 versions: Optional[list] = None):
+
+        if api is not None:
+            versions = api.pricer().get_available_volatility_surface_versions(
+                start_datetime=start_datetime, end_datetime=end_datetime)
+        else:
+            versions = versions
         super().__init__(versions, 'vol_surface_id')
 
 
 class OptionChooser:
 
-    def __init__(self, option_data: pd.DataFrame):
-        self.data = option_data.reset_index()
+    def __init__(self,
+                 api: Optional[SerenityApiProvider] = None,
+                 option_data: Optional[pd.DataFrame] = None):
 
-        linked_asset_symbols = np.sort(self.data['linked_asset_native_symbol'].unique())
+        if api is not None:
+            self.data = get_predefined_option_infos(api)
+        else:
+            self.data = option_data.reset_index().copy()
+        # add option_type in string
+        self.data['option_type_str'] = self.data['option_type'].apply(lambda x: x.name)
 
-        self.widget_linked_asset_symbol = widgets.Dropdown(
-            options=linked_asset_symbols,
+        underlier_asset_symbols = np.sort(self.data['native_symbol_underlier'].unique())
+
+        self.widget_underlier_asset_symbol = widgets.Dropdown(
+            options=underlier_asset_symbols,
             value=None,
-            description='Linked Asset'
+            description='Underlier Asset'
         )
 
         self.widget_expiry = widgets.Dropdown(
@@ -90,16 +123,16 @@ class OptionChooser:
             description='Type'
         )
 
-        self.cols_widgets = ['linked_asset_native_symbol', 'expiry_datetime', 'strike_price', 'option_type']
-        self.list_widgets = [self.widget_linked_asset_symbol,
+        self.cols_widgets = ['native_symbol_underlier', 'expiry_datetime', 'strike_price', 'option_type_str']
+        self.list_widgets = [self.widget_underlier_asset_symbol,
                              self.widget_expiry, self.widget_strike, self.widget_option_type]
 
-        self.widget_linked_asset_symbol.observe(self.__widget_linked_asset_symbol_changed, names='value')
+        self.widget_underlier_asset_symbol.observe(self.__widget_underlier_asset_symbol_changed, names='value')
         self.widget_expiry.observe(self.__widget_expiry_changed, names='value')
         self.widget_strike.observe(self.__widget_strike_changed, names='value')
 
         # set the initial symbol
-        self.widget_linked_asset_symbol.value = linked_asset_symbols[0]
+        self.widget_underlier_asset_symbol.value = underlier_asset_symbols[0]
         self.widget_expiry.value = self.widget_expiry.options[-1]
 
     def __set_mid_strike(self):
@@ -119,7 +152,7 @@ class OptionChooser:
             df = self.__match(i)
             self.list_widgets[i].options = list(np.sort(df[self.cols_widgets[i]].unique()))
 
-    def __widget_linked_asset_symbol_changed(self, wb):
+    def __widget_underlier_asset_symbol_changed(self, wb):
 
         self.__update_widgets(0)
         self.__set_mid_strike()
@@ -132,7 +165,7 @@ class OptionChooser:
         self.__update_widgets(2)
 
     def get_widget_to_display(self):
-        return widgets.VBox([self.widget_linked_asset_symbol, self.widget_expiry,
+        return widgets.VBox([self.widget_underlier_asset_symbol, self.widget_expiry,
                              self.widget_strike, self.widget_option_type])
 
     def get_selected_option(self) -> pd.Series:
@@ -142,4 +175,6 @@ class OptionChooser:
         if df.shape[0] != 1:
             raise ValueError('Something went wrong. Check your selection')
         else:
-            return df.iloc[0].to_dict()
+            dict = df.iloc[0].to_dict()
+            del dict['option_type_str']
+            return dict

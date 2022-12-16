@@ -1,10 +1,14 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from serenity_types.pricing.derivatives.rates.yield_curve import YieldCurveVersion
 from serenity_types.pricing.derivatives.options.volsurface import VolatilitySurfaceVersion, StrikeType
-from serenity_types.pricing.derivatives.options.valuation import OptionValuation, OptionValuationResult
+from serenity_types.pricing.derivatives.options.valuation import (
+    OptionValuation,
+    OptionValuationResult,
+)
 from .converters import convert_object_list_to_df
 from .utils import svi_vol
 
@@ -236,3 +240,134 @@ class OptionValuationResultTablePlot:
         results_table = results_table[tag2id.keys()].copy()
 
         self.results_table = results_table
+
+
+def plot_valuation_results(res_df: pd.DataFrame, valuation_labels=None, xlabel='time', legend_loc=1):
+    """
+    Plot key valuation results over time
+
+    :param res_df: result data frame
+    :valuation_labels: label
+    """
+
+    if valuation_labels is None:
+        valuation_labels = res_df.columns
+
+    fig, axs = plt.subplots(2, 2, figsize=(10, 6), sharex=True)
+
+    # present value
+    ax = axs[0][0]
+    ax.plot(valuation_labels, res_df.loc['pv'], '.-', label='PV')
+
+    # spot price & forward price
+    ax = axs[0][1]
+    ax.plot(valuation_labels, res_df.loc['spot_price'], '.-', label='Spot')
+    ax.plot(valuation_labels, res_df.loc['forward_price'], '.-', label='Forward Price')
+
+    # rates
+    ax = axs[1][0]
+    ax.plot(valuation_labels, res_df.loc['projection_rate'], '.-', label='Projection Rate')
+    ax.plot(valuation_labels, res_df.loc['discounting_rate'], '.-', label='Discounting Rate')
+
+    # delta (ccy)
+    ax = axs[1][1]
+    plt.plot(valuation_labels, res_df.loc['delta_ccy'], '.-', label='delta (ccy)')
+
+    for i in range(2):
+        ax = axs[0][i]
+        ax.tick_params(axis='x', which='both', bottom=False)
+        ax = axs[1][i]
+        ax.set_xlabel(xlabel)
+        ax.tick_params(axis='x', labelrotation=90)
+
+    for i in range(4):
+        ax: plt.Axes = axs.flatten()[i]
+        if legend_loc is None:
+            ax.legend()
+        else:
+            ax.legend(loc=legend_loc)
+        ax.ticklabel_format(useOffset=False, style='plain', axis='y')
+        ax.grid()
+
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_bumped_pv(
+        res_table: pd.DataFrame,
+        qty: int,
+        bumps: Dict[str, float],
+        bumped_market_data_name: str,
+        first_order_greek: str,
+        second_order_greek: Optional[str] = None,
+        base_column_id: Optional[str] = 'base',
+        figsize: Optional[tuple] = (10, 6)):
+    """
+    plot present values over market data bumps
+
+    :param res_table: data frame containing results
+    :param qty: quantity
+    :param bumps: dictionary of bumps (name, value) pairs
+    :param bumped_market_data_name: name of the bumped market data (e.g. spot, vol)
+    :param first_order_greek: name of the first-order Greek with respect to the market data bumped
+    :param second_order_greek: name of the second-order Greek with respect to the market data bumped (optional)
+    :param base_column_id: name of the base valuation from which the Greeks are taken, defaults to 'base'
+    :param figsize: figure size, defaults to (10, 6)
+    """
+
+    result_base = res_table[base_column_id]
+    result_bumps = res_table[[c for c in res_table.columns if c != base_column_id]]
+
+    pv_base = result_base['pv']
+    bump_vals = np.array(list(bumps.values()))
+
+    base_1st = result_base[first_order_greek]
+    pnl_approx = qty * base_1st * bump_vals
+    if second_order_greek is not None:
+        base_2nd = result_base[second_order_greek]
+        pnl_approx_2 = pnl_approx + qty * (0.5 * base_2nd * bump_vals**2)
+
+    plt.figure(figsize=figsize)
+    plt.plot(bump_vals, result_bumps.loc['pv'] - pv_base, '.-', ms=10, label='bump & pv change')
+    plt.plot(bump_vals, pnl_approx, ':', label='1st-order approximation')
+    if second_order_greek is not None:
+        plt.plot(bump_vals, pnl_approx_2, ':', label='2nd-order approximation')
+    plt.grid(), plt.legend(), plt.xlabel(f'bump ({bumped_market_data_name})'), plt.ylabel('pv change')
+
+
+def plot_volatility_surface_3d(
+    vol_surface: VolatilitySurfaceVersion,
+    width=800, height=800,
+) -> go.Figure:
+
+    # interpolated surface
+    ivs = vol_surface.interpolated
+    interpolated_df = pd.DataFrame(
+        {
+            'expiry': ivs.time_to_expiries,
+            'strike': ivs.strikes,
+            'vol': ivs.vols
+        })
+    interpolated_df = interpolated_df.groupby(['expiry', 'strike'])['vol'].mean().unstack()
+    T, K, sigma = interpolated_df.index.values, interpolated_df.columns.values, interpolated_df.values.T
+
+    raw_df = convert_object_list_to_df(vol_surface.raw.vol_points)
+    T_raw, K_raw, sigma_raw = (raw_df[c] for c in ['time_to_expiry', 'strike_value', 'iv'])
+
+    # 3D plot
+    fig = go.Figure(data=[
+        go.Surface(z=sigma, x=T, y=K, opacity=0.75, name='interpolated'),
+        go.Scatter3d(x=T_raw, y=K_raw, z=sigma_raw, mode='markers',
+                     marker=dict(size=2, color=np.log(T_raw)), name='raw')
+    ])
+
+    fig.update_layout(
+        title='implied volatility',
+        scene=dict(
+            xaxis_title='x:expiry',
+            yaxis_title='y:strike',
+            zaxis_title='z:implied volatility'
+        ),
+        width=width, height=height, autosize=False,
+        margin=dict(l=65, r=50, b=65, t=90))
+    return fig
