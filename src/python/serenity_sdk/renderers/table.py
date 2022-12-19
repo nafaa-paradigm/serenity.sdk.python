@@ -1,9 +1,10 @@
 import itertools
 
-from typing import AnyStr, Dict, List, Tuple
+from typing import AnyStr, Dict, List
 from uuid import UUID
 
 import pandas as pd
+import pandas.io.formats.style as pdifs
 
 from serenity_sdk.types.common import SectorPath
 from serenity_sdk.types.refdata import AssetMaster
@@ -311,7 +312,7 @@ class VaRBacktestTables:
         """
         return self.rolling_breaches
 
-    def get_breaches_summary(self, quantile: float = 99) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def get_breaches_summary(self, quantile: float = 99) -> pd.DataFrame:
         """
         :param quantile: the VaR quantile to report on in this summary
         :return: a DataFrame with each breach and the corresponding VaR and PnL
@@ -331,18 +332,30 @@ class VaRBacktestTables:
             breach_col: self.var_breaches[quantile]
         }).set_index(run_date_col)
 
-        loss_fmt = lambda val: f'${val:,.2f}' if val >= 0 else f'(${abs(val):,.2f})'
-        pct_fmt = lambda val: f'({abs(val):,.1%})' if val < 0 else f'{abs(val):,.1%}'
+        return backtest_df[backtest_df[breach_col]]
 
-        red_blue_formatter = lambda val: 'color: blue' if val > 0 else 'color: red'
-        breaches_df = backtest_df[backtest_df[breach_col]].head().style.format({
+    @staticmethod
+    def format_breaches_summary(breaches_df: pd.DataFrame) -> pdifs.Styler:
+        """
+        helper function to format breaches summary DataFrame
+
+        :param breaches_df: a DataFrame produced by get_breaches_summary function
+        """
+
+        def loss_fmt(val): return f'${val:,.2f}' if val >= 0 else f'(${abs(val):,.2f})'
+        def pct_fmt(val): return f'({abs(val):,.1%})' if val < 0 else f'{abs(val):,.1%}'
+        def red_blue_formatter(val): return 'color: blue' if val > 0 else 'color: red'
+
+        base_line_col, var_col, var_rel_col, pnl_col, _ = breaches_df.columns
+
+        breaches_df_formatted = breaches_df.style.format({
             base_line_col: loss_fmt,
             var_col: loss_fmt,
             var_rel_col: pct_fmt,
             pnl_col: loss_fmt
         }).applymap(red_blue_formatter, subset=[pnl_col])
 
-        return breaches_df
+        return breaches_df_formatted
 
     @staticmethod
     def _extract_ts(arr, func_value, func_index=lambda res: res.run_date):
