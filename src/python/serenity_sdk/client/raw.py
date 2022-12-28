@@ -193,6 +193,15 @@ class SerenityClient:
 
             response_json = requests.post(api_base_url, headers=http_headers,
                                           params=params, json=body_json).json()
+        elif call_type == CallType.PATCH:
+            response_json = requests.patch(api_base_url, headers=http_headers,
+                                           params=params, json=body_json).json()
+        elif call_type == CallType.PUT:
+            response_json = requests.put(api_base_url, headers=http_headers,
+                                         params=params, json=body_json).json()
+        elif call_type == CallType.DELETE:
+            response_json = requests.delete(api_base_url, headers=http_headers,
+                                            params=params).json()
         elif call_type == CallType.GET:
             response_json = requests.get(api_base_url, headers=http_headers,
                                          params=params).json()
