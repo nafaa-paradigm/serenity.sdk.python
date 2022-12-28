@@ -19,7 +19,7 @@ python = ">=3.8,<4"
 requests = "^2.18.4"
 scipy = "^1.7.3"
 seaborn = "^0.11.2"
-serenity-types-python = "0.0.20"
+serenity-types-python = "0.0.27"
 plotly = "^5.11.0"
 
 [tool.poetry.dev-dependencies]

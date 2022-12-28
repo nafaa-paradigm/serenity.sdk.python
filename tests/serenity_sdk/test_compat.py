@@ -1,4 +1,5 @@
-from serenity_sdk.client import (APIPathMapper, Environment)
+from serenity_sdk.client.config import Environment
+from serenity_sdk.client.raw import APIPathMapper
 
 
 def test_lookup_api_path_no_remapping():

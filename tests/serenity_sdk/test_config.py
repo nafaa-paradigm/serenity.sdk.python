@@ -1,6 +1,6 @@
 import os.path
 
-from serenity_sdk.config import Environment, Region, load_local_config
+from serenity_sdk.client.config import Environment, Region, load_local_config
 
 
 def test_load_local_config_v2_dev():
