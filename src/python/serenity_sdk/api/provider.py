@@ -2,6 +2,7 @@ from serenity_sdk.api.model import ModelApi
 from serenity_sdk.api.pricing import PricerApi
 from serenity_sdk.api.refdata import RefdataApi
 from serenity_sdk.api.risk import RiskApi
+from serenity_sdk.api.scenarios import ScenariosApi
 from serenity_sdk.api.valuation import ValuationApi
 from serenity_sdk.client.raw import SerenityClient
 
@@ -20,6 +21,7 @@ class SerenityApiProvider:
         self.valuation_api = ValuationApi(client)
         self.pricer_api = PricerApi(client)
         self.model_api = ModelApi(client)
+        self.scenarios_api = ScenariosApi(client)
 
     def refdata(self) -> RefdataApi:
         """
@@ -45,6 +47,12 @@ class SerenityApiProvider:
         Gets a typed wrapper for all the pricing API's for derivatives.
         """
         return self.pricer_api
+
+    def scenarios(self) -> ScenariosApi:
+        """
+        Gets a typed wrapper for executing scenarios and managing custom scenarios.
+        """
+        return self.scenarios_api
 
     def model(self) -> ModelApi:
         """
