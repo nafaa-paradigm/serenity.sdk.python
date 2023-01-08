@@ -109,7 +109,6 @@ class RiskApi(SerenityApi):
         :return: a typed wrapper around the VaR calculation results
         """
         request = {
-            **self._create_std_params(ctx.as_of_date),
             'portfolio': {'assetPositions': portfolio.to_asset_positions()},
             'startDate': start_date.strftime(STD_DATE_FMT),
             'endDate': end_date.strftime(STD_DATE_FMT),
