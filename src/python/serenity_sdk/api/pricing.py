@@ -102,7 +102,7 @@ class PricerApi(SerenityApi):
                              parameterizations and their versions; defaults to now
         """
         params = {
-            'vol_surface_id': str(yield_curve_id) if yield_curve_id is not None else None,
+            'yield_curve_id': str(yield_curve_id) if yield_curve_id is not None else None,
             'start_datetime': start_datetime,
             'end_datetime': end_datetime
         }
