@@ -17,11 +17,10 @@ def run_compute_option_valuations(
         the_optvals=Dict[str, OptionValuation],
         **kwargs) -> pd.DataFrame:
     """
-    Function to run 'compute_option_valuations' and put the valuation results into a helper object to format outputs.
-    Through **kwargs, one can specify the same inputs of OptionValuationRequest except options.
+    Function to run 'compute_option_valuation' and create results in dictionary format.
 
     :param api: Serenity Api provider
-    :param the_optvals: dictionary of option valuations
+    :param the_optvals: dictionary of option valuations, defaults to Dict[str, OptionValuation]
     :return: dictionary of option valuation results
     """
 
