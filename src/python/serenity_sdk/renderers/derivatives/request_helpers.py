@@ -15,21 +15,17 @@ logging = logging.getLogger(__name__)
 def run_compute_option_valuations(
         api: SerenityApiProvider,
         the_optvals=Dict[str, OptionValuation],
-        as_of_time=None) -> pd.DataFrame:
+        **kwargs) -> pd.DataFrame:
     """
-    # Function to run 'compute_option_valuations' and put the valuation results into a helper object to format outputs
+    Function to run 'compute_option_valuations' and put the valuation results into a helper object to format outputs.
+    Through **kwargs, one can specify the same inputs of OptionValuationRequest except options.
 
-
-    :param api: _description_
-    :param the_optvals: _description_, defaults to Dict[str, OptionValuation]
-    :param as_of_time: _description_, defaults to None
-    :return: _description_
+    :param api: Serenity Api provider
+    :param the_optvals: dictionary of option valuations
+    :return: dictionary of option valuation results
     """
 
-    request = OptionValuationRequest(options=[v for v in the_optvals.values()])
-    if as_of_time is not None:
-        request.as_of_time = as_of_time
-
+    request = OptionValuationRequest(options=[v for v in the_optvals.values()], **kwargs)
     val_results = api.pricer().compute_option_valuations(request)
 
     # use a helper object for output formatting
