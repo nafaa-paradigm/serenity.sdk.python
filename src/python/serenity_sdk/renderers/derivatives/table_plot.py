@@ -301,7 +301,8 @@ def plot_bumped_pv(
         first_order_greek: str,
         second_order_greek: Optional[str] = None,
         base_column_id: Optional[str] = 'base',
-        figsize: Optional[tuple] = (10, 6)):
+        figsize: Optional[tuple] = (10, 6),
+        **kwargs: dict):
     """
     plot present values over market data bumps
 
@@ -328,11 +329,18 @@ def plot_bumped_pv(
         pnl_approx_2 = pnl_approx + qty * (0.5 * base_2nd * bump_vals**2)
 
     plt.figure(figsize=figsize)
-    plt.plot(bump_vals, result_bumps.loc['pv'] - pv_base, '.-', ms=10, label='bump & pv change')
+    reval_change = result_bumps.loc['pv'] - pv_base
+    plt.plot(bump_vals, reval_change, '.-', ms=10, label='bump & pv change')
     plt.plot(bump_vals, pnl_approx, ':', label='1st-order approximation')
     if second_order_greek is not None:
         plt.plot(bump_vals, pnl_approx_2, ':', label='2nd-order approximation')
     plt.grid(), plt.legend(), plt.xlabel(f'bump ({bumped_market_data_name})'), plt.ylabel('pv change')
+
+    show_dev_1st = kwargs.get('show_dev_1st', False)
+    if show_dev_1st:
+        plt.figure(figsize=figsize)
+        plt.plot(bump_vals, reval_change - pnl_approx, ':', label='deviation from 1st-order approx')
+        plt.grid(), plt.legend(), plt.xlabel(f'bump ({bumped_market_data_name})'), plt.ylabel('deviation')
 
 
 def plot_volatility_surface_3d(

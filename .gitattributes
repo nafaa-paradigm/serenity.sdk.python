@@ -1,2 +1,3 @@
 *.ipynb filter=poetry run nbstripout
 *.ipynb diff=ipynb
+*.ipynb filter=strip-notebook-output
