@@ -1,19 +1,20 @@
-from datetime import datetime
+from typing import Optional
+from datetime import datetime, date
 import itertools
 import pandas as pd
 from serenity_sdk.client import SerenityApiProvider
 from .converters import convert_object_list_to_df
 
 
-def get_predefined_option_infos(api: SerenityApiProvider):
+def get_predefined_option_infos(api: SerenityApiProvider, as_of_date: Optional[date] = None):
 
-    underliers = api.pricer().get_supported_underliers()
+    underliers = api.pricer().get_supported_underliers(as_of_date=as_of_date)
     underliers_df = convert_object_list_to_df(underliers)
     # underliers_df
 
     # Load using get_supported_options call and convert them to a dataframe for an easier display
     option_df = convert_object_list_to_df(itertools.chain.from_iterable((
-        api.pricer().get_supported_options(underlier_asset_id=underlier.asset_id)
+        api.pricer().get_supported_options(as_of_date=as_of_date, underlier_asset_id=underlier.asset_id)
         for underlier in underliers)))
 
     # Add additional fields to help displaying
@@ -26,6 +27,6 @@ def get_predefined_option_infos(api: SerenityApiProvider):
     # (3) select key columns
     option_df = option_df[['asset_id', 'asset_type', 'native_symbol', 'underlier_asset_id',
                            'contract_size', 'option_type', 'option_style',
-                           'strike_price', 'expiry', 'expiry_datetime', 'native_symbol_underlier']]
+                           'strike_price', 'expiry', 'expiry_datetime', 'native_symbol_underlier', 'display_name']]
 
     return option_df

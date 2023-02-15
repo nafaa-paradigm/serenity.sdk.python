@@ -89,6 +89,12 @@ class OptionChooser:
     def __init__(self,
                  api: Optional[SerenityApiProvider] = None,
                  option_data: Optional[pd.DataFrame] = None):
+        """
+        Specify either api (to retrieve options from Serenity database) or option_data (to use user's own data)
+
+        :param api: Serenity api provider, defaults to None
+        :param option_data: dataframe of options, defaults to None
+        """
 
         if api is not None:
             self.data = get_predefined_option_infos(api)
