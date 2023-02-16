@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -183,6 +183,40 @@ class VolatilitySurfaceTablePlot:
                 'vol': obj.vols
             }
         )
+
+    def plot_at_log_moneyness(self, log_m: float, figsize=(14, 4)) -> Tuple[List[float], List[float]]:
+        """
+        Plot a term structure over time-to-expires at a given log-moneyness.
+        This function is only for strike_type = LOG_MONEYNESS
+
+        :param log_m: log moneyness (e.g. 0.0 for ATM)
+        :param figsize: fig size, defaults to (14, 4)
+        :return: tuple of time_to_expires and vols at the moneyness
+        """
+
+        if self.strike_type != StrikeType.LOG_MONEYNESS:
+            raise ValueError("This function is for vol with LOG_MONEYNESS strike type.")
+
+        iv_log_m = []
+        for tte in self.time_to_expiries:
+            params = self.vs.interpolated.calibration_params[tte]
+            iv = svi_vol(log_m, tte, *params.values())
+            iv_log_m.append(iv)
+
+        fig, axs = plt.subplots(1, 1, figsize=figsize)
+        ax = axs
+        x = self.time_to_expiries
+        y = iv_log_m
+
+        ax.plot(x, y, '.-')
+        ax.set_xlabel('time-to-expiry')
+        ax.set_ylabel('implied vol')
+
+        as_of_time = self.vs.as_of_time.strftime('%Y-%m-%d %H:%M:%S')
+        name = self.vs.interpolated.definition.display_name
+        ax.set_title(f'{name} as of {as_of_time} \n for log moneyness: {log_m:.3f}')
+
+        return x, y
 
     def plot(self, figsize=(14, 4)):
         """
